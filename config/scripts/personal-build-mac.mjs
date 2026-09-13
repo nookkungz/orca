@@ -7,6 +7,7 @@ execFileSync('pnpm', ['build:mac'], {
   env: {
     ...process.env,
     ORCA_BACKGROUND_LAUNCH: '1',
+    ORCA_PERSONAL_BUILD: '1',
     SWIFT_EXEC: resolve(import.meta.dirname, 'personal-swiftc.mjs')
   }
 })

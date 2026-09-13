@@ -23,6 +23,7 @@ or installation occurs. Use `git merge --abort` to abandon a conflicting merge.
 The personal build wrapper uses the current public Swift package interface while
 compiling native helpers. This avoids stale Swift 5 private interfaces left by this
 Mac's Command Line Tools upgrade; it does not modify the system toolchain.
+Personal packages use ad-hoc signing without Apple notarization.
 
 ## Automation model selection
 
