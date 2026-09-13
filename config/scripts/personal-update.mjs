@@ -1,14 +1,25 @@
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
+import { resolvePnpmCliInvocation } from './pnpm-cli-invocation.mjs'
 
 const root = resolve(import.meta.dirname, '../..')
 const env = { ...process.env, ORCA_BACKGROUND_LAUNCH: '1' }
 const read = (command, args) =>
   execFileSync(command, args, { cwd: root, env, encoding: 'utf8' }).trim()
-const run = (command, args) => execFileSync(command, args, { cwd: root, env, stdio: 'inherit' })
+const run = (command, args) => {
+  const invocation =
+    command === 'pnpm' ? resolvePnpmCliInvocation() : { command, prefixArgs: [], shell: false }
+  execFileSync(invocation.command, [...invocation.prefixArgs, ...args], {
+    cwd: root,
+    env,
+    stdio: 'inherit',
+    shell: invocation.shell,
+    windowsHide: true
+  })
+}
 
-if (process.platform !== 'darwin') {
-  throw new Error('Personal packaging currently targets macOS.')
+if (!['darwin', 'win32'].includes(process.platform)) {
+  throw new Error('Personal packaging supports macOS and Windows.')
 }
 if (process.versions.node.split('.')[0] !== '24') {
   throw new Error('Use Node 24.')
@@ -19,7 +30,14 @@ if (read('git', ['status', '--porcelain'])) {
 if (read('git', ['branch', '--show-current']) !== 'personal/automation-models') {
   throw new Error('Switch to personal/automation-models before updating.')
 }
-const tag = read('gh', ['api', 'repos/stablyai/orca/releases/latest', '--jq', '.tag_name'])
+const release = await fetch('https://api.github.com/repos/stablyai/orca/releases/latest', {
+  headers: { 'User-Agent': 'orca-personal-updater' },
+  signal: AbortSignal.timeout(30_000)
+})
+if (!release.ok) {
+  throw new Error(`Unable to fetch stable release: HTTP ${release.status}`)
+}
+const { tag_name: tag } = await release.json()
 if (!/^v\d+\.\d+\.\d+$/.test(tag)) {
   throw new Error(`Unexpected stable release tag: ${tag}`)
 }

@@ -60,3 +60,16 @@ Use `pnpm personal:update` for personal updates. Orca's official updater install
 the official app and removes these patches. To roll back, quit Orca, restore the
 backed-up app, and reopen it; restore the data backup only if needed, preserving a
 copy of newer data first.
+
+## Windows host
+
+With Node 24 and pnpm 12 on PATH, run `pnpm personal:build` for the Windows
+installer and Remote web assets. `pnpm personal:update` also supports Windows.
+Add `upstream` as `https://github.com/stablyai/orca.git` on a fresh clone.
+
+Back up the installed app and both profiles before installation:
+`%APPDATA%/orca` and `C:/Users/nookk/assistant/orca-data`. Both Windows hosts
+use the same installed Orca.exe. Restart both runtimes after installation and
+check the launch-preferences capability from Mac. Assistant-Orca starts port 6770.
+Keep the relocated terminal daemon running during app replacement.
+Personal Windows packages are unsigned; install only the locally verified build.
