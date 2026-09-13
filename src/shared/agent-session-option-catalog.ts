@@ -1,3 +1,4 @@
+import { ANTIGRAVITY_SESSION_OPTION_CATALOG } from './agent-session-option-catalog-antigravity'
 import type { AgentType } from './agent-status-types'
 import {
   CLAUDE_SESSION_OPTION_CATALOG,
@@ -31,6 +32,7 @@ export { createClaudeCatalogOptions }
 const CATALOGS: AgentSessionOptionCatalogMap = {
   claude: CLAUDE_SESSION_OPTION_CATALOG,
   codex: CODEX_SESSION_OPTION_CATALOG,
+  antigravity: ANTIGRAVITY_SESSION_OPTION_CATALOG,
   gemini: GEMINI_SESSION_OPTION_CATALOG,
   cursor: CURSOR_SESSION_OPTION_CATALOG,
   grok: GROK_SESSION_OPTION_CATALOG

@@ -29,6 +29,7 @@ import {
   getRequiredStringFlag
 } from '../flags'
 import { resolveAutomationDestination } from '../automation-destination'
+import { getAutomationLaunchPreferencesFlags } from './automation-launch-preferences-flags'
 import { RuntimeClientError } from '../runtime-client'
 import { getOptionalWorktreeSelector, resolveCurrentWorktreeSelector } from '../selectors'
 import {
@@ -184,6 +185,7 @@ export const AUTOMATION_HANDLERS: Record<string, CommandHandler> = {
       prompt: getRequiredStringFlag(flags, 'prompt'),
       precheck: getPrecheckFlag(flags),
       agentId: getProviderFlag(flags),
+      launchPreferences: getAutomationLaunchPreferencesFlags(flags),
       ...(target.runContext ? { runContext: target.runContext } : {}),
       ...(sourceContext !== undefined ? { sourceContext } : {}),
       repo: target.repo,
@@ -226,6 +228,13 @@ export const AUTOMATION_HANDLERS: Record<string, CommandHandler> = {
       missedRunGraceMinutes: getOptionalPositiveIntegerFlag(flags, 'missed-run-grace-minutes'),
       ...schedule
     } satisfies AutomationUpdateParams
+    const preferencesRequested = ['model', 'effort', 'clear-model', 'clear-effort'].some((flag) =>
+      flags.has(flag)
+    )
+    const current = preferencesRequested
+      ? (await client.call<{ automation: Automation }>('automation.show', { id })).result.automation
+      : undefined
+    const launchPreferences = getAutomationLaunchPreferencesFlags(flags, current?.launchPreferences)
     const expectedOwner = await resolveExpectedOwner(client, id)
     // Why: expectedOwner only fences the host the record is leaving; an edit that moves it needs the arrival fenced too.
     const destination = await resolveAutomationDestination(client, target)
@@ -233,7 +242,7 @@ export const AUTOMATION_HANDLERS: Record<string, CommandHandler> = {
       id,
       ...(expectedOwner ? { expectedOwner } : {}),
       ...(destination ? { destination } : {}),
-      updates
+      updates: { ...updates, ...(launchPreferences !== undefined ? { launchPreferences } : {}) }
     })
     printResult(result, json, formatAutomationShow)
   },

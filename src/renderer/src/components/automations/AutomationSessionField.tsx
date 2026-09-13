@@ -67,7 +67,11 @@ export function AutomationSessionField({
         <ToggleGroupItem value="fresh" className={toggleItemClassName}>
           {translate('auto.components.automations.AutomationSessionField.c90888ee94', 'Fresh')}
         </ToggleGroupItem>
-        <ToggleGroupItem value="reuse" className={toggleItemClassName}>
+        <ToggleGroupItem
+          disabled={Boolean(draft.launchPreferences?.model)}
+          value="reuse"
+          className={toggleItemClassName}
+        >
           {translate('auto.components.automations.AutomationSessionField.f3c76dce51', 'Reuse')}
         </ToggleGroupItem>
       </ToggleGroup>

@@ -1,4 +1,5 @@
 // @ts-nocheck -- mechanically split from OrcaRuntimeService; behavior is covered by AST equivalence and characterization tests.
+import type { AgentLaunchPreferences } from '../../shared/agent-session-host-authority'
 import { OrcaRuntimeWithCreateAgentSession } from './orca-runtime-create-agent-session'
 import type { RuntimeTerminalCreate } from '../../shared/runtime-types'
 import { WORKTREE_CREATE_RESULT_TTL_MS } from './orca-runtime-core'
@@ -143,7 +144,12 @@ export class OrcaRuntimeWithTerminalCreateDeduplication extends OrcaRuntimeWithC
 
   async launchAgentTerminal(
     worktreeSelector: string,
-    opts: { agent: TuiAgent; prompt: string; title?: string }
+    opts: {
+      agent: TuiAgent
+      prompt: string
+      title?: string
+      launchPreferences?: AgentLaunchPreferences
+    }
   ): Promise<RuntimeTerminalCreate> {
     const worktree = await this.resolveWorktreeSelector(worktreeSelector)
     // Why: the trust write lands in an agent's config on the machine that runs it, keyed by the
@@ -158,7 +164,7 @@ export class OrcaRuntimeWithTerminalCreateDeduplication extends OrcaRuntimeWithC
     if (!repo) {
       throw new Error('Repository for the selected workspace is no longer available.')
     }
-    const startup = this.buildStartupForAgent(repo, opts.agent, opts.prompt)
+    const startup = this.buildStartupForAgent(repo, opts.agent, opts.prompt, opts.launchPreferences)
     await this.markWorkspaceTrustedForAgent(opts.agent, resolution.connectionId, worktree.path)
     return await this.createTerminal(`id:${worktree.id}`, {
       command: startup.startup.command,

@@ -63,6 +63,41 @@ describe('Store', () => {
   afterEach(() => {
     rmSync(testState.dir, { recursive: true, force: true })
   })
+  it('persists model overrides across reloads and rejects reuse without altering saved state', async () => {
+    const store = await createStore()
+    store.addRepo(makeRepo())
+    const automation = store.createAutomation({
+      name: 'Model test',
+      prompt: 'Run checks',
+      agentId: 'codex',
+      projectId: 'r1',
+      workspaceMode: 'existing',
+      workspaceId: 'wt1',
+      timezone: 'UTC',
+      rrule: 'FREQ=DAILY;BYHOUR=9;BYMINUTE=0',
+      dtstart: Date.now(),
+      launchPreferences: { model: 'gpt-5.6-terra', effort: 'low' }
+    })
+    expect(() => store.updateAutomation(automation.id, { reuseSession: true })).toThrow(
+      'fresh session'
+    )
+    store.updateAutomation(automation.id, { name: 'Renamed', launchPreferences: undefined })
+    store.flush()
+    const reloaded = await createStore()
+    expect(reloaded.listAutomations()[0].launchPreferences).toEqual({
+      model: 'gpt-5.6-terra',
+      effort: 'low'
+    })
+    reloaded.updateAutomation(automation.id, { launchPreferences: { model: 'gpt-5.6-terra' } })
+    expect(reloaded.listAutomations()[0].launchPreferences).toEqual({ model: 'gpt-5.6-terra' })
+    reloaded.updateAutomation(automation.id, { launchPreferences: null, reuseSession: true })
+    reloaded.flush()
+    expect((await createStore()).listAutomations()[0]).toMatchObject({
+      launchPreferences: null,
+      reuseSession: true
+    })
+  })
+
   it('can clear an automation back to the project default branch', async () => {
     const store = await createStore()
     store.addRepo(makeRepo({ worktreeBaseRef: 'origin/main' }))

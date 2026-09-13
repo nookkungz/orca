@@ -57,7 +57,6 @@ export async function launchAgentBackgroundSession(
   }
   const cmdOverrides = store.settings?.agentCmdOverrides ?? {}
   const agentArgs = resolveTuiAgentLaunchArgs(agent, store.settings?.agentDefaultArgs)
-  const agentEnv = resolveTuiAgentLaunchEnv(agent, store.settings?.agentDefaultEnv)
   // Folder launch ownership cannot be derived from a repo row (#2989).
   const launchHost = resolveAgentBackgroundLaunchHost({
     store,
@@ -93,7 +92,9 @@ export async function launchAgentBackgroundSession(
     prompt: hasPrompt && !isFollowupPath ? trimmedPrompt : '',
     cmdOverrides,
     agentArgs,
-    agentEnv,
+    sessionOptions: args.launchPreferences ? { ...args.launchPreferences } : undefined,
+    sessionOptionsOverrideAgentArgs: Boolean(args.launchPreferences),
+    agentEnv: resolveTuiAgentLaunchEnv(agent, store.settings?.agentDefaultEnv),
     platform: launchPlatform,
     shell: startupShell,
     isRemote,

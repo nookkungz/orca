@@ -18,7 +18,11 @@ const AUTOMATION_STATE_FLAGS = [
   'disabled',
   'missed-run-grace-minutes',
   'reuse-session',
-  'fresh-session'
+  'fresh-session',
+  'model',
+  'effort',
+  'clear-model',
+  'clear-effort'
 ]
 
 export const AUTOMATION_COMMAND_SPECS: CommandSpec[] = [
@@ -53,6 +57,7 @@ export const AUTOMATION_COMMAND_SPECS: CommandSpec[] = [
       ...AUTOMATION_STATE_FLAGS
     ],
     notes: [
+      'Use --model and --effort for a fresh session each run. --clear-model clears both; --clear-effort keeps the model. Omitted edit flags preserve saved values.',
       'Trigger accepts hourly, daily, weekdays, weekly, a 5-field cron expression, or an RRULE string.',
       'When --repo is omitted, the CLI uses the enclosing Orca worktree when one can be resolved from cwd.',
       'Use --project with --host, or --project-host-setup, to run on a specific project host setup.',

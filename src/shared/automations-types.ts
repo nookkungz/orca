@@ -1,3 +1,4 @@
+import type { AgentLaunchPreferences } from './agent-session-host-authority'
 import type { TuiAgent } from './tui-agent'
 import type { SetupDecision } from './worktree/create-types'
 import type { TaskSourceContext, WorkspaceRunContext } from './task-source-context'
@@ -96,6 +97,7 @@ export type Automation = {
   prompt: string
   precheck: AutomationPrecheck | null
   agentId: TuiAgent
+  launchPreferences?: Pick<AgentLaunchPreferences, 'model' | 'effort'> | null
   /** Why: runContext carries the logical project + host setup identity for
    *  multi-host projects; projectId remains only as the legacy repo-id storage
    *  field for pre-host-context automations.
@@ -183,6 +185,7 @@ export type AutomationCreateInput = {
   prompt: string
   precheck?: AutomationPrecheck | null
   agentId: TuiAgent
+  launchPreferences?: Pick<AgentLaunchPreferences, 'model' | 'effort'> | null
   runContext?: WorkspaceRunContext | null
   sourceContext?: TaskSourceContext | null
   /** @deprecated Legacy repo-id compatibility field required for older stored
@@ -207,6 +210,7 @@ export type AutomationUpdateInput = Partial<
     | 'prompt'
     | 'precheck'
     | 'agentId'
+    | 'launchPreferences'
     | 'runContext'
     | 'sourceContext'
     | 'projectId'

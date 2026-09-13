@@ -50,6 +50,7 @@ export function initializeMainProcessAutomations(): AutomationService {
             }
             const terminal = await runtime.launchAgentTerminal(`id:${automation.workspaceId}`, {
               agent: automation.agentId,
+              launchPreferences: automation.launchPreferences ?? undefined,
               prompt: automation.prompt,
               title: run.title
             })

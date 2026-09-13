@@ -54,7 +54,7 @@ const automation: Automation = {
 describe('headless automation workspace create args', () => {
   it('stamps automation provenance for serve-mode new-per-run workspaces', () => {
     const args = buildHeadlessAutomationWorktreeCreateArgs({
-      automation,
+      automation: { ...automation, launchPreferences: { model: 'gpt-5.6-terra', effort: 'low' } },
       run: {
         id: 'run-1',
         title: 'Nightly review run',
@@ -73,6 +73,7 @@ describe('headless automation workspace create args', () => {
       createdWithAgent: 'codex',
       startupAgent: 'codex',
       startupPrompt: 'Review changes',
+      startupLaunchPreferences: { model: 'gpt-5.6-terra', effort: 'low' },
       telemetrySource: 'unknown',
       automationProvenance: {
         kind: 'created-by-automation',

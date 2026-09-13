@@ -166,6 +166,7 @@ export async function handleAutomationDispatchRequest({
     }
     const result = await launchAgentBackgroundSession({
       agent: automation.agentId,
+      launchPreferences: automation.launchPreferences ?? undefined,
       worktreeId: worktree.id,
       prompt: automation.prompt,
       launchSource: 'unknown',

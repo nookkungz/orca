@@ -68,6 +68,9 @@ export function buildAgentStartupPlan(args: {
     isRemote: args.isRemote
   })
   if (!baseCommand.ok) {
+    if (args.sessionOptionsOverrideAgentArgs) {
+      throw new Error(baseCommand.error)
+    }
     return null
   }
   const launchConfig = buildSleepingAgentLaunchConfig({

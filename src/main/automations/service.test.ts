@@ -380,7 +380,8 @@ describe('AutomationService', () => {
     const automation = store.createAutomation({
       name: 'Morning check',
       prompt: 'Check the repo',
-      agentId: 'claude',
+      agentId: 'codex',
+      launchPreferences: { model: 'gpt-5.6-terra', effort: 'low' },
       projectId: 'r1',
       runContext: {
         kind: 'workspace-run',
@@ -417,7 +418,13 @@ describe('AutomationService', () => {
       expect(run?.status).toBe('dispatched')
       expect(run?.scheduledFor).toBe(scheduledRunAt)
       expect(headlessDispatcher).toHaveBeenCalledWith(
-        expect.objectContaining({ automation: expect.objectContaining({ id: automation.id }) })
+        expect.objectContaining({
+          automation: expect.objectContaining({
+            id: automation.id,
+            launchPreferences: { model: 'gpt-5.6-terra', effort: 'low' },
+            reuseSession: false
+          })
+        })
       )
       await vi.waitFor(() =>
         expect(store.listAutomations().find((entry) => entry.id === automation.id)?.nextRunAt).toBe(

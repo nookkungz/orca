@@ -1,3 +1,4 @@
+import { AutomationModelField } from './AutomationModelField'
 import AgentCombobox from '@/components/agent/AgentCombobox'
 import { cn } from '@/lib/utils'
 import { translate } from '@/i18n/i18n'
@@ -102,13 +103,24 @@ export function AutomationEditorSettingsSidebar({
                   agents={visibleAgents}
                   value={draft.agentId}
                   onValueChange={(agentId) =>
-                    agentId && onDraftChange((current) => ({ ...current, agentId }))
+                    agentId &&
+                    onDraftChange((current) => ({
+                      ...current,
+                      agentId,
+                      launchPreferences: current.launchPreferences === undefined ? undefined : null
+                    }))
                   }
                   defaultAgent={settings?.defaultTuiAgent ?? null}
                   triggerClassName={`h-9 w-full min-w-0 ${pickerTriggerClassName}`}
                   allowNarrowTrigger
                 />
               </Field>
+              <AutomationModelField
+                draft={draft}
+                repo={repoMap.get(draft.projectId)}
+                destination={destination}
+                onDraftChange={onDraftChange}
+              />
             </div>
           </div>
         </div>

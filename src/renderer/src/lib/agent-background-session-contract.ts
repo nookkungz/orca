@@ -1,3 +1,4 @@
+import type { AgentLaunchPreferences } from '../../../shared/agent-session-host-authority'
 import type { ParsedAgentStatusPayload } from '../../../shared/agent-status-types'
 import type { LaunchSource } from '../../../shared/telemetry-events'
 import type { TuiAgent } from '../../../shared/tui-agent'
@@ -5,6 +6,7 @@ import type { AgentStartupPlan } from '@/lib/tui-agent-startup'
 import type { AutomationTerminalOwnership } from '@/lib/automation-terminal-ownership'
 
 export type LaunchAgentBackgroundSessionArgs = {
+  launchPreferences?: AgentLaunchPreferences
   agent: TuiAgent
   worktreeId: string
   prompt?: string

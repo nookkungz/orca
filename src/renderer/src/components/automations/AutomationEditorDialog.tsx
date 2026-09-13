@@ -3,6 +3,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { getAgentCatalog } from '@/lib/agent-catalog'
 import { filterEnabledTuiAgents } from '../../../../shared/tui-agent-selection'
 import type {
+  Automation,
   AutomationSchedulePreset,
   AutomationWorkspaceMode
 } from '../../../../shared/automations-types'
@@ -38,6 +39,7 @@ export type AutomationDraft = {
   name: string
   prompt: string
   agentId: TuiAgent
+  launchPreferences?: Automation['launchPreferences']
   projectId: string
   workspaceMode: AutomationWorkspaceMode
   workspaceId: string

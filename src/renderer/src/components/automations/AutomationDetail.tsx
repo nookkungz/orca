@@ -265,6 +265,14 @@ export function AutomationDetail({
           label={translate('auto.components.automations.AutomationDetail.15ea446b93', 'Session')}
           value={automation.reuseSession ? 'Reuse live session' : 'Fresh each run'}
         />
+        {automation.launchPreferences?.model ? (
+          <DetailMetric
+            label="Model"
+            value={[automation.launchPreferences.model, automation.launchPreferences.effort]
+              .filter(Boolean)
+              .join(' · ')}
+          />
+        ) : null}
         {sourceDisplay ? (
           <DetailMetric
             label={translate('auto.components.automations.AutomationDetail.29baf8f4c2', 'Source')}

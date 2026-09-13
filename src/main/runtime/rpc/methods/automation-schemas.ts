@@ -21,6 +21,15 @@ const TuiAgent = requiredString('Missing provider').refine(isTuiAgent, {
   message: 'Unknown provider'
 })
 
+const LaunchPreferences = z
+  .object({
+    model: z.string().min(1).max(256),
+    effort: z.string().min(1).max(256).optional()
+  })
+  .strict()
+  .nullable()
+  .optional()
+
 const AutomationWorkspaceMode = z.enum(['existing', 'new_per_run']).optional()
 const SetupDecision = z.enum(['inherit', 'run', 'skip']).optional()
 const ExecutionHostId = requiredString('Missing host id').transform((value, ctx) => {
@@ -156,6 +165,7 @@ export const AutomationCreate = z.object({
   baseBranch: OptionalPlainString,
   setupDecision: SetupDecision,
   reuseSession: OptionalBoolean,
+  launchPreferences: LaunchPreferences,
   timezone: OptionalString,
   rrule: AutomationSchedule,
   dtstart: requiredNumber('Missing trigger start time'),
@@ -178,6 +188,7 @@ const AutomationUpdateFields = z.object({
   baseBranch: OptionalNullablePlainString,
   setupDecision: SetupDecision,
   reuseSession: OptionalBoolean,
+  launchPreferences: LaunchPreferences,
   timezone: OptionalString,
   rrule: AutomationSchedule.optional(),
   dtstart: requiredNumber('Missing trigger start time').optional(),
