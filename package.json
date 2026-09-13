@@ -10,6 +10,8 @@
   },
   "main": "./out/main/index.js",
   "scripts": {
+    "personal:build": "node config/scripts/personal-build-mac.mjs",
+    "personal:update": "node config/scripts/personal-update.mjs",
     "audit:perf": "oxlint --config config/oxlint-performance-audit.json --format json src",
     "test:perf:contracts": "vitest run --config config/vitest.performance.config.ts",
     "format": "oxfmt --write .",
