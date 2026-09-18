@@ -8,14 +8,12 @@ import { translate } from '@/i18n/i18n'
 type AutomationSessionFieldProps = {
   draft: AutomationDraft
   toggleGroupClassName: string
-  toggleItemClassName: string
   onDraftChange: (updater: (current: AutomationDraft) => AutomationDraft) => void
 }
 
 export function AutomationSessionField({
   draft,
   toggleGroupClassName,
-  toggleItemClassName,
   onDraftChange
 }: AutomationSessionFieldProps): React.JSX.Element {
   return (
@@ -64,14 +62,10 @@ export function AutomationSessionField({
         size="sm"
         className={toggleGroupClassName}
       >
-        <ToggleGroupItem value="fresh" className={toggleItemClassName}>
+        <ToggleGroupItem value="fresh">
           {translate('auto.components.automations.AutomationSessionField.c90888ee94', 'Fresh')}
         </ToggleGroupItem>
-        <ToggleGroupItem
-          disabled={Boolean(draft.launchPreferences?.model)}
-          value="reuse"
-          className={toggleItemClassName}
-        >
+        <ToggleGroupItem disabled={Boolean(draft.launchPreferences?.model)} value="reuse">
           {translate('auto.components.automations.AutomationSessionField.f3c76dce51', 'Reuse')}
         </ToggleGroupItem>
       </ToggleGroup>

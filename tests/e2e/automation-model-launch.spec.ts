@@ -1,8 +1,11 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { z } from 'zod'
 import { test, expect } from './helpers/orca-app'
 import { waitForSessionReady } from './helpers/store'
 import { quoteStartupArg } from '../../src/shared/tui-agent-startup-shell'
+
+const Launch = z.object({ pid: z.number(), cwd: z.string(), argv: z.array(z.string()) })
 
 test('Run Now and scheduled model overrides launch fresh processes in both workspace modes', async ({
   orcaPage
@@ -60,7 +63,19 @@ setTimeout(() => process.exit(0), 500);
         if (!response.ok) {
           throw new Error(response.error.message)
         }
-        ids.push((response.result as { automation: { id: string } }).automation.id)
+        const result = response.result
+        if (
+          typeof result !== 'object' ||
+          result === null ||
+          !('automation' in result) ||
+          typeof result.automation !== 'object' ||
+          result.automation === null ||
+          !('id' in result.automation) ||
+          typeof result.automation.id !== 'string'
+        ) {
+          throw new Error('Automation create returned an invalid result')
+        }
+        ids.push(result.automation.id)
       }
     }
     return ids
@@ -70,7 +85,7 @@ setTimeout(() => process.exit(0), 500);
       .trim()
       .split('\n')
       .filter(Boolean)
-      .map((line) => JSON.parse(line) as { pid: number; cwd: string; argv: string[] })
+      .map((line) => Launch.parse(JSON.parse(line)))
   for (let index = 0; index < ids.length; index++) {
     for (let round = 0; round < 2; round++) {
       await orcaPage.evaluate(async (id) => {

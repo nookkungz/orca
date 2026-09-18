@@ -177,7 +177,6 @@ export function AutomationEditorSettingsSidebar({
             <AutomationSessionField
               draft={draft}
               toggleGroupClassName={segmentedGroupClassName}
-              toggleItemClassName={segmentedItemClassName}
               onDraftChange={onDraftChange}
             />
           </div>

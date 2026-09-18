@@ -1,7 +1,4 @@
-import {
-  automationRequestHasLaunchPreferences,
-  assertAutomationLaunchPreferencesSupported
-} from '../../../shared/automation-launch-preferences'
+import * as automationLaunch from '../../../shared/automation-launch-preferences'
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import type { RuntimeStatus } from '../../../shared/runtime-types'
 import type { RuntimeCapability } from '../../../shared/protocol-version'
@@ -58,6 +55,7 @@ export async function callRuntimeRpc<TResult>(
     skipCompatibilityCheck?: boolean
     signal?: AbortSignal
     expectedEnvironmentPairingRevision?: number
+    expectedEnvironmentRuntimeId?: string
   } = {}
 ): Promise<TResult> {
   const expectedEnvironmentPairingRevision =
@@ -80,9 +78,9 @@ export async function callRuntimeRpc<TResult>(
   if (options.signal?.aborted) {
     throw createRuntimeRpcAbortError()
   }
-  if (automationRequestHasLaunchPreferences(method, params)) {
+  if (automationLaunch.automationRequestHasLaunchPreferences(method, params)) {
     const status = await callRuntimeRpc<RuntimeStatus>(target, 'status.get')
-    assertAutomationLaunchPreferencesSupported(null, status.capabilities)
+    automationLaunch.assertAutomationLaunchPreferencesSupported(null, status.capabilities)
   }
   const nextParams = options.suppressFeatureInteraction
     ? withBrowserPaneUiRuntimeRpcSource(params)
@@ -96,7 +94,8 @@ export async function callRuntimeRpc<TResult>(
           params: nextParams,
           timeoutMs: options.timeoutMs,
           signal: options.signal,
-          expectedEnvironmentPairingRevision
+          expectedEnvironmentPairingRevision,
+          expectedEnvironmentRuntimeId: options.expectedEnvironmentRuntimeId
         })
   return unwrapRuntimeRpcResult<TResult>(response as RuntimeRpcResponse<TResult>)
 }
