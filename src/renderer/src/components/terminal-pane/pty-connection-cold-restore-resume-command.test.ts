@@ -269,6 +269,7 @@ describe('connectPanePty', () => {
       restoredLeafId: LEAF_2,
       restoredPtyIdByLeafId: { [LEAF_2]: ptyId }
     })
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: these focused fixtures implement the pane, manager, and dependency methods used by this test.
     const binding = connectPanePty(createPane(2) as never, createManager(2) as never, deps as never)
     try {
       await flushAsyncTicks(25)
