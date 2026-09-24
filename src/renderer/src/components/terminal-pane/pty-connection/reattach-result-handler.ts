@@ -176,14 +176,16 @@ export function bindHandleReattachResult(sessionBag: ConnectPanePtySession): voi
     const hasStructuralReplay = Boolean(
       connectResult?.snapshot || connectResult?.replay || connectResult?.coldRestore
     )
-    const resumeComesFromPassiveHibernation = Boolean(
+    // Remote images arrive on the stream; empty replay does not prove an empty shell.
+    const resumeLocalPassiveHibernation = Boolean(
+      !isRemoteRuntimePtyId(ptyId) &&
       coldRestoreStartup &&
       !coldRestoreStartup.useLiveEntry &&
       coldRestoreStartup.sleepingRecordEntry &&
       isPassiveCompletedHibernationEvidence(coldRestoreStartup.sleepingRecordEntry.record)
     )
     // Why: reattach drops startup commands; only passive hibernation is authority to retire an empty adopted shell and resume its provider session.
-    if (!hasStructuralReplay && connectResult?.isReattach && resumeComesFromPassiveHibernation) {
+    if (!hasStructuralReplay && connectResult?.isReattach && resumeLocalPassiveHibernation) {
       session.transport.disconnect()
       if (staleSessionId) {
         session.clearExitedPanePtyLayoutBinding(staleSessionId)

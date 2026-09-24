@@ -238,6 +238,48 @@ describe('connectPanePty', () => {
     }
   })
 
+  it('retains a hibernated remote session while its snapshot arrives through the stream', async () => {
+    const { connectPanePty } = await import('./pty-connection')
+    const paneKey = makePaneKey('tab-1', LEAF_2)
+    const ptyId = 'remote:windows@@term-1'
+    const transport = createMockTransport(ptyId)
+    transport.connect
+      .mockResolvedValueOnce({ id: ptyId, replay: '', isReattach: true })
+      .mockImplementation(() => new Promise(() => {}))
+    transportFactoryQueue.push(transport)
+    mockStoreState = {
+      ...mockStoreState,
+      tabsByWorktree: { 'wt-1': [{ id: 'tab-1', ptyId }] },
+      sleepingAgentSessionsByPaneKey: {
+        [paneKey]: {
+          paneKey,
+          tabId: 'tab-1',
+          worktreeId: 'wt-1',
+          agent: 'codex',
+          providerSession: { key: 'session_id', id: 'session-1' },
+          prompt: '',
+          state: 'done',
+          origin: 'worktree-sleep',
+          capturedAt: 1,
+          updatedAt: 1
+        }
+      }
+    }
+    const deps = createDeps({
+      restoredLeafId: LEAF_2,
+      restoredPtyIdByLeafId: { [LEAF_2]: ptyId }
+    })
+    const binding = connectPanePty(createPane(2) as never, createManager(2) as never, deps as never)
+    try {
+      await flushAsyncTicks(25)
+      expect(transport.disconnect).not.toHaveBeenCalled()
+      expect(transport.connect).toHaveBeenCalledTimes(1)
+      expect(deps.syncPanePtyLayoutBinding).toHaveBeenCalledWith(2, ptyId)
+    } finally {
+      binding.dispose()
+    }
+  })
+
   it('re-runs the resume command when a hibernated local session reattaches with no payload', async () => {
     // Why: the daemon drops startup commands on reattach, so a passive hibernation record must replace a contentless adopted shell.
     const pendingTimeouts: (() => void)[] = []

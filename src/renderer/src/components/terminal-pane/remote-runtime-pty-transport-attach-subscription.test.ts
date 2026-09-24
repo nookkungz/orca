@@ -174,6 +174,27 @@ describe('createRemoteRuntimePtyTransport', () => {
     transport.destroy?.()
   })
 
+  it('accepts an initial snapshot delivered before subscribeTerminal resolves', async () => {
+    let snapshotScheduled = false
+    subscriptionSendBinary.mockImplementation(() => {
+      if (snapshotScheduled) {
+        return
+      }
+      snapshotScheduled = true
+      emitSnapshot(latestSubscribePayload().streamId, 'fast authoritative state')
+    })
+    const { createRemoteRuntimePtyTransport } = await import('./remote-runtime-pty-transport')
+    const transport = createRemoteRuntimePtyTransport('env-1', { worktreeId: 'wt-1' })
+
+    transport.attach({
+      existingPtyId: 'remote:terminal-1',
+      callbacks: { onOutputPauseChanged: vi.fn() }
+    })
+
+    await vi.waitFor(() => expect(transport.isConnected()).toBe(true))
+    transport.destroy?.()
+  })
+
   // Why: retained gauges would inflate every later high-water profile.
   it.each(['detach', 'destroy'] as const)(
     'drops its side-effect gauge from the census on %s',

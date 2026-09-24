@@ -1952,6 +1952,26 @@ export function createRemoteRuntimePtyTransport(
     let transportClosed = false
     let subscriptionAttached = false
     let subscriptionSnapshotHadContent = false
+    let nextStream: RemoteRuntimeMultiplexedTerminal | null = null
+    let pendingOutputPauseNotifications = 0
+    const notifyOutputPauseChanged = (): void => {
+      const notify = storedCallbacks.onOutputPauseChanged
+      if (!notify) {
+        return
+      }
+      if (!nextStream) {
+        pendingOutputPauseNotifications += 1
+        return
+      }
+      notify(desiredOutputPaused, nextStream.setOutputPaused(desiredOutputPaused))
+    }
+    const flushPendingOutputPauseNotifications = (): void => {
+      const pending = pendingOutputPauseNotifications
+      pendingOutputPauseNotifications = 0
+      for (let index = 0; index < pending; index += 1) {
+        notifyOutputPauseChanged()
+      }
+    }
     // Why: viewport handed to subscribe; a resize during the round-trip falls back to the refresh-only one-shot RPC, replayed through the stream below once current.
     const subscribedViewport = desiredViewport
     const isCurrentSubscription = (): boolean =>
@@ -1959,7 +1979,7 @@ export function createRemoteRuntimePtyTransport(
       generation === subscriptionGeneration &&
       (expectedRecoveryEpoch === undefined || recovery.ownsEpoch(expectedRecoveryEpoch)) &&
       isCurrentRemoteTerminal(subscribedHandle, subscribedPtyId)
-    const nextStream = await getRemoteRuntimeTerminalMultiplexer(
+    const subscribedStream = await getRemoteRuntimeTerminalMultiplexer(
       currentRuntimeEnvironmentId
     ).subscribeTerminal({
       terminal: subscribedHandle,
@@ -2012,20 +2032,14 @@ export function createRemoteRuntimePtyTransport(
         },
         onOutputPauseCapability: () => {
           if (isCurrentSubscription()) {
-            storedCallbacks.onOutputPauseChanged?.(
-              desiredOutputPaused,
-              nextStream.setOutputPaused(desiredOutputPaused)
-            )
+            notifyOutputPauseChanged()
           }
         },
         onSubscribed: () => {
           if (!isCurrentSubscription()) {
             return
           }
-          storedCallbacks.onOutputPauseChanged?.(
-            desiredOutputPaused,
-            nextStream.setOutputPaused(desiredOutputPaused)
-          )
+          notifyOutputPauseChanged()
           if (!subscriptionAttached && sameHandleEndRecovery) {
             recordSameHandleEndReuse(subscribedHandle)
           }
@@ -2127,6 +2141,7 @@ export function createRemoteRuntimePtyTransport(
         }
       }
     })
+    nextStream = subscribedStream
     if (
       transportClosed ||
       generation !== subscriptionGeneration ||
@@ -2136,11 +2151,12 @@ export function createRemoteRuntimePtyTransport(
       handle !== subscribedHandle ||
       remotePtyId !== subscribedPtyId
     ) {
-      nextStream.close()
+      subscribedStream.close()
       return
     }
+    flushPendingOutputPauseNotifications()
     closeMultiplexedStream()
-    multiplexedStream = nextStream
+    multiplexedStream = subscribedStream
     multiplexedStreamHandle = subscribedHandle
     setAttachmentReady(subscriptionAttached)
     if (subscriptionAttached) {
@@ -2149,16 +2165,16 @@ export function createRemoteRuntimePtyTransport(
     }
     // Why: a viewport change during the subscribe round-trip hit the no-op one-shot fallback; replay the latest viewport so the PTY isn't stuck at subscribe-time size.
     if (pendingViewportClaim && desiredViewport) {
-      nextStream.claimViewport(desiredViewport.cols, desiredViewport.rows)
+      subscribedStream.claimViewport(desiredViewport.cols, desiredViewport.rows)
     } else if (
       desiredViewport &&
       (desiredViewport.cols !== subscribedViewport?.cols ||
         desiredViewport.rows !== subscribedViewport?.rows)
     ) {
-      nextStream.resize(desiredViewport.cols, desiredViewport.rows)
+      subscribedStream.resize(desiredViewport.cols, desiredViewport.rows)
     }
     // Why: a live claim may already have cleared the flag, so drain on every install.
-    flushPendingClaimInput(nextStream)
+    flushPendingClaimInput(subscribedStream)
   }
 
   const transport: PtyTransport = {
