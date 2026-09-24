@@ -29,9 +29,13 @@ describe('automation launch preferences', () => {
         launchPreferences: { model: 'gpt-5.6-terra', effort: 'invalid' }
       })
     ).toThrow('does not support')
-    expect(() => assertAutomationLaunchPreferences({ ...input, agentId: 'antigravity' })).toThrow(
-      'does not support'
-    )
+    expect(() => assertAutomationLaunchPreferences({ ...input, agentId: 'antigravity' })).not.toThrow()
+    expect(() =>
+      assertAutomationLaunchPreferences({
+        agentId: 'antigravity',
+        launchPreferences: { model: 'gemini-3.8-flash-high', effort: 'invalid' }
+      })
+    ).toThrow('does not support')
     expect(() =>
       assertAutomationLaunchPreferences({
         agentId: 'antigravity',
