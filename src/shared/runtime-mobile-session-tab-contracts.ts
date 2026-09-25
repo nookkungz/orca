@@ -6,6 +6,7 @@ import type { TerminalLayoutSnapshot } from './terminal-tab-types'
 import type { TuiAgent } from './tui-agent'
 
 export type RuntimeMobileSessionTerminalTab = {
+  automationId?: string
   type: 'terminal'
   id: string
   title: string

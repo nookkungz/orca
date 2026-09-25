@@ -24,10 +24,8 @@ import { callRuntimeRpc, getActiveRuntimeTarget } from '@/runtime/runtime-rpc-cl
 import { getSettingsForWorktreeRuntimeOwner } from '@/lib/worktree-runtime-owner'
 import { retireProvider } from '@/lib/retire-unowned-background-terminal'
 import { createRuntimeAgentBackgroundTerminal } from '@/lib/runtime-agent-background-create'
-import {
-  subscribeToRuntimeTerminalData,
-  toRemoteRuntimePtyId
-} from '@/runtime/runtime-terminal-stream'
+import { subscribeToRuntimeTerminalData } from '@/runtime/runtime-terminal-stream'
+import { toRemoteRuntimePtyId } from '../../../shared/remote-runtime-pty-id'
 import {
   createSshBackgroundStartupDelivery,
   sshBackgroundLaunchWaitsForShellReady
@@ -225,6 +223,7 @@ export async function launchAgentBackgroundSession(
       sshStartupDelivery.applyHostShellReadyArmed(result.shellReadyArmed)
     }
     const adopted = await adoptAgentBackgroundSessionTab({
+      automationId: args.automationId,
       store,
       worktreeId,
       reservedTabId,

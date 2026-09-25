@@ -79,6 +79,10 @@ const terminalLayoutSnapshotSchema = z.object({
 
 // ─── Terminal tab (legacy) ──────────────────────────────────────────
 
+const executionHostIdSchema = z.custom<ExecutionHostId>(
+  (value) => typeof value === 'string' && Boolean(parseExecutionHostId(value))
+)
+
 const terminalTabSchema = z.object({
   id: terminalTabIdSchema,
   ptyId: z.string().nullable(),
@@ -96,6 +100,8 @@ const terminalTabSchema = z.object({
     .optional()
     .catch(undefined),
   quickCommandLabel: z.string().nullable().optional(),
+  automationId: z.string().min(1).optional(),
+  executionHostId: executionHostIdSchema.optional(),
   customTitle: z.string().nullable(),
   color: z.string().nullable(),
   isPinned: z.boolean().optional(),
@@ -121,10 +127,6 @@ const terminalTabSchema = z.object({
 
 // ─── Unified tab model ──────────────────────────────────────────────
 
-const executionHostIdSchema = z.custom<ExecutionHostId>(
-  (value) => typeof value === 'string' && Boolean(parseExecutionHostId(value))
-)
-
 const tabSchema = z.object({
   id: z.string(),
   entityId: z.string(),
@@ -148,6 +150,7 @@ const tabSchema = z.object({
     .optional()
     .catch(undefined),
   quickCommandLabel: z.string().nullable().optional(),
+  automationId: z.string().min(1).optional(),
   customLabel: z.string().nullable(),
   color: z.string().nullable(),
   sortOrder: z.number(),

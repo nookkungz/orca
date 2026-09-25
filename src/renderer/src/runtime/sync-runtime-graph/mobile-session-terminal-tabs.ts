@@ -108,6 +108,7 @@ export function buildMobileTerminalSurfaceTabs(
         ? { quickCommandLabel: terminal.quickCommandLabel.trim() }
         : {}),
       parentTabId: terminal.id,
+      ...(terminal.automationId ? { automationId: terminal.automationId } : {}),
       leafId,
       ptyId,
       ...(inputs.terminalTheme ? { terminalTheme: inputs.terminalTheme } : {}),

@@ -65,6 +65,7 @@ export function buildRuntimeMobileTabsProjection(
                 id: tab.id,
                 title: tab.title,
                 quickCommandLabel: tab.quickCommandLabel,
+                automationId: tab.automationId,
                 aiVaultTitle: tab.aiVaultTitle,
                 generatedTitle: tab.generatedTitle,
                 customTitle: tab.customTitle,

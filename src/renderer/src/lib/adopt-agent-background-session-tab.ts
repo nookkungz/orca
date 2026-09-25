@@ -64,6 +64,7 @@ export async function adoptAgentBackgroundSessionTab(args: {
   runtimeTarget: RuntimeClientTarget
   runtimeTerminalHandle: string | null
   onRetire: () => void
+  automationId?: string
   title?: string
 }): Promise<{
   tab: ReturnType<Store['createTab']>
@@ -97,6 +98,7 @@ export async function adoptAgentBackgroundSessionTab(args: {
   const tab = store.createTab(args.worktreeId, undefined, undefined, {
     id: reservedTabId,
     initialPtyId: ptyId,
+    automationId: args.automationId,
     activate: false,
     recordInteraction: false
   })

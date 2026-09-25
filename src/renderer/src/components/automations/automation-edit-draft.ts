@@ -25,6 +25,7 @@ export function buildAutomationEditDraft(automation: Automation): AutomationDraf
     prompt: automation.prompt,
     agentId: automation.agentId,
     launchPreferences: automation.launchPreferences,
+    showRunsInTabs: automation.showRunsInTabs === true,
     projectId: getAutomationRunRepoId(automation),
     workspaceMode: automation.workspaceMode,
     workspaceId: automation.workspaceId ?? '',

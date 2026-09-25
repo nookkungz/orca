@@ -117,6 +117,7 @@ export function createTerminalTabCreationActions(
           id,
           // Why: CLI-created background sessions already own a PTY, so reveal attaches instead of spawning a duplicate.
           ptyId: options?.initialPtyId ?? null,
+          ...(options?.automationId ? { automationId: options.automationId } : {}),
           worktreeId,
           // Why: reuse the lowest free ordinal so a fresh terminal stays "Terminal 1" after older tabs close, not a monotonic counter.
           title: defaultTitle,
@@ -191,6 +192,7 @@ export function createTerminalTabCreationActions(
           groupId: group.id,
           worktreeId,
           contentType: 'terminal' as const,
+          ...(tab.automationId ? { automationId: tab.automationId } : {}),
           label: tab.title,
           ...(tab.quickCommandLabel?.trim()
             ? { quickCommandLabel: tab.quickCommandLabel.trim() }

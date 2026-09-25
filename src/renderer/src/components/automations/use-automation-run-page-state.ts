@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { translate } from '@/i18n/i18n'
 import { getAutomationHostTargetKey, getAutomationTargetFromHostId } from './automation-host-client'
 import {
+  automationRunForEnvironment,
   canOpenAutomationRunOpenTarget,
   getAutomationRunOpenTabId
 } from './automation-run-open-target'
@@ -213,15 +214,23 @@ export function useAutomationRunPageState({
         worktree: selectedAutomationRunPageWorktree
       })
     : null
+  const authority = selectedRow?.catalogRef?.authority
+  const environmentId = authority?.kind === 'runtime' ? authority.environmentId : undefined
   const selectedAutomationRunPageOpenTabId = selectedAutomationRunPage
-    ? getAutomationRunOpenTabId(selectedAutomationRunPage)
+    ? getAutomationRunOpenTabId(selectedAutomationRunPage, environmentId)
     : null
   const selectedAutomationRunPageViewState = selectedAutomationRunPage
     ? getAutomationRunViewState({
         run: selectedAutomationRunPage,
         workspaceExists: Boolean(selectedAutomationRunPageWorktree),
         terminalTargetExists: canOpenAutomationRunOpenTarget({
-          run: selectedAutomationRunPage,
+          run: automationRunForEnvironment(
+            selectedAutomationRunPage,
+            environmentId,
+            selectedAutomationRunPageOpenTabId
+              ? terminalLayoutsByTabId[selectedAutomationRunPageOpenTabId]
+              : null
+          ),
           terminalTabExists: selectedAutomationRunPageOpenTabId
             ? activeTerminalTabIds.has(selectedAutomationRunPageOpenTabId)
             : false,

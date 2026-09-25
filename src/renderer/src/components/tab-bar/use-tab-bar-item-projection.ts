@@ -1,3 +1,7 @@
+import {
+  isAutomationRunTabVisible,
+  useAutomationRunTabVisibility
+} from '@/lib/automation-run-tab-visibility'
 import { useMemo } from 'react'
 import type { GitFileStatus } from '../../../../shared/git-status-types'
 import type { Tab } from '../../../../shared/tab-types'
@@ -34,6 +38,7 @@ export function useTabBarItemProjection({
   generatedTabTitlesEnabled: boolean
   statusByRelativePath: Map<string, GitFileStatus>
 }): TabBarItemProjection {
+  const visibility = useAutomationRunTabVisibility()
   const {
     tabs,
     editorFiles,
@@ -92,8 +97,12 @@ export function useTabBarItemProjection({
         browserMap,
         agentSessionMap,
         unifiedTabByVisibleId
+      }).filter((item) => {
+        const tab = unifiedTabByVisibleId.get(item.id) ?? terminalMap.get(item.id)
+        return !tab || isAutomationRunTabVisible(tab, visibility)
       }),
     [
+      visibility,
       tabBarOrder,
       terminalIds,
       editorFileIds,

@@ -159,7 +159,8 @@ export function buildMobileSessionGroupProjection(
     return {
       order: applyUnifiedEditorTabIdsToLegacyOrder(
         getActiveTabNavOrder(buildLegacyNavOrderView(inputs), inputs.worktreeId, {
-          editorIds: ids.editorIds
+          editorIds: ids.editorIds,
+          includeHiddenAutomationRuns: true
         }),
         inputs
       )
@@ -180,6 +181,7 @@ export function buildMobileSessionGroupProjection(
       editorIds,
       browserIds,
       new Set(),
+      true,
       true
     )
     if (visibleOrder.length === 0) {

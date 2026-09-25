@@ -1,3 +1,4 @@
+import { assertAutomationTabVisibility } from '../../../shared/automation-tab-visibility'
 import { assertAutomationLaunchPreferences } from '../../../shared/automation-launch-preferences'
 import { randomUUID } from 'node:crypto'
 import { invalidateLocalWorktreeMetadataPruneInputs } from '../../local-worktree-metadata-prune-gate'
@@ -52,6 +53,7 @@ export function createAutomation(
   input: AutomationCreateInput,
   options?: { destination?: AutomationDestination }
 ): Automation {
+  assertAutomationTabVisibility(input.showRunsInTabs)
   assertAutomationLaunchPreferences(input)
   if (input.creationKey) {
     const existing = (operations.state.automations ?? []).find(
@@ -89,6 +91,7 @@ export function createAutomation(
     precheck: normalizeAutomationPrecheck(input.precheck),
     agentId: input.agentId,
     launchPreferences: input.launchPreferences,
+    showRunsInTabs: input.showRunsInTabs ?? false,
     // Why own contexts win: a wire context speaks the client's perspective —
     // 'runtime:<id>' is a client-assigned name this store cannot interpret, and
     // persisting it makes the projection orphan a record this authority owns.
@@ -219,6 +222,7 @@ export function updateAutomation(
       : current.nextRunAt,
     updatedAt: Date.now()
   }
+  assertAutomationTabVisibility(merged.showRunsInTabs)
   assertAutomationLaunchPreferences(merged)
   const previousPin = automationWorkspaceSshPin(operations.state, current.workspaceId)
   const workspaceSshPin = automationWorkspaceSshPin(operations.state, merged.workspaceId)

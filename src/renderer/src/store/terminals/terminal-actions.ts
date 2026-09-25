@@ -68,6 +68,7 @@ export type TerminalActions = {
     shellOverride?: string,
     options?: {
       pendingActivationSpawn?: boolean
+      automationId?: string
       initialPtyId?: string
       /** Stable leaf identity for adopting an already-live pane without changing its pane key. */
       initialLeafId?: string

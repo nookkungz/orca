@@ -100,6 +100,7 @@ export function tabEqual(a: Tab, b: Tab): boolean {
     // Why: the generated label is the visible tab title; ignoring it let the
     // equality bail keep a unified tab that disagreed with its terminal tab.
     a.generatedLabel === b.generatedLabel &&
+    a.automationId === b.automationId &&
     a.aiVaultTitle?.agent === b.aiVaultTitle?.agent &&
     a.aiVaultTitle?.sessionId === b.aiVaultTitle?.sessionId &&
     a.aiVaultTitle?.title === b.aiVaultTitle?.title &&

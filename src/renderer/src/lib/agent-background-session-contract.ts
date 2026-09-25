@@ -6,6 +6,7 @@ import type { AgentStartupPlan } from '@/lib/tui-agent-startup'
 import type { AutomationTerminalOwnership } from '@/lib/automation-terminal-ownership'
 
 export type LaunchAgentBackgroundSessionArgs = {
+  automationId?: string
   launchPreferences?: AgentLaunchPreferences
   agent: TuiAgent
   worktreeId: string

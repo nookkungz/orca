@@ -1,3 +1,4 @@
+import { automationSessionTabOrigins } from './automation-session-tab-origins'
 import { randomUUID } from 'node:crypto'
 import { isFinalAutomationRunStatus } from '../../../shared/automations-types'
 import { invalidateLocalWorktreeMetadataPruneInputs } from '../../local-worktree-metadata-prune-gate'
@@ -205,6 +206,17 @@ export function updateAutomationRun(
   if (!isFinalAutomationRunStatus(current.status) && isFinalAutomationRunStatus(updated.status)) {
     // Why: only a non-final run pins its workspace, so finishing releases the claim (#17775).
     invalidateLocalWorktreeMetadataPruneInputs()
+  }
+  const state = operations.state
+  if (state.workspaceSession) {
+    state.workspaceSession = automationSessionTabOrigins(state, state.workspaceSession, 'local')
+    for (const [hostId, session] of Object.entries(state.workspaceSessionsByHostId ?? {})) {
+      if (session) {
+        Object.assign(state.workspaceSessionsByHostId!, {
+          [hostId]: automationSessionTabOrigins(state, session, hostId)
+        })
+      }
+    }
   }
   touchAutomation(operations.state, updated.automationId, now)
   operations.flush()

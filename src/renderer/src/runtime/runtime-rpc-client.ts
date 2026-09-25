@@ -1,4 +1,5 @@
-import * as automationLaunch from '../../../shared/automation-launch-preferences'
+import { applySavedAutomationTabVisibility } from '@/lib/automation-run-tab-visibility'
+import { assertAutomationRequestCapabilities } from '../../../shared/automation-request-capabilities'
 import type { RuntimeRpcResponse } from '../../../shared/runtime-rpc-envelope'
 import type { RuntimeStatus } from '../../../shared/runtime-types'
 import type { RuntimeCapability } from '../../../shared/protocol-version'
@@ -6,7 +7,7 @@ import { withBrowserPaneUiRuntimeRpcSource } from '../../../shared/runtime-rpc-f
 import { assertRuntimeStatusCompatible } from './runtime-protocol-compat'
 import { createRuntimeRpcAbortError } from './abortable-runtime-environment-call'
 import { callRuntimeEnvironmentWithRevision } from './runtime-rpc-environment-call'
-import { RuntimeRpcCallError, unwrapRuntimeRpcResult } from './runtime-rpc-result'
+import { unwrapRuntimeRpcResult } from './runtime-rpc-result'
 import { captureRuntimeEnvironmentRequestRevision } from './runtime-environment-revision'
 import type { RuntimeClientTarget } from './runtime-client-target'
 
@@ -15,11 +16,7 @@ export {
   settingsForRuntimeOwner,
   type RuntimeClientTarget
 } from './runtime-client-target'
-export {
-  hasRuntimeRpcErrorCode,
-  RuntimeRpcCallError,
-  unwrapRuntimeRpcResult
-} from './runtime-rpc-result'
+export * from './runtime-rpc-result'
 
 const RUNTIME_COMPATIBILITY_CACHE_MAX = 32
 const RECENT_RUNTIME_COMPATIBILITY_FAILURE_TTL_MS = 60_000
@@ -36,13 +33,6 @@ type RuntimeCompatibilityCacheEntry = {
 }
 
 const runtimeCompatibilityChecks = new Map<string, RuntimeCompatibilityCacheEntry>()
-
-// Why: mobile-scope device tokens are denied non-allowlisted runtime methods
-// with code 'forbidden'. Callers use this to surface one scope-mismatch banner
-// instead of silently swallowing the failure into empty/retry-looping UI.
-export function isRuntimeScopeForbiddenError(error: unknown): boolean {
-  return error instanceof RuntimeRpcCallError && error.code === 'forbidden'
-}
 
 export async function callRuntimeRpc<TResult>(
   target: RuntimeClientTarget,
@@ -78,10 +68,12 @@ export async function callRuntimeRpc<TResult>(
   if (options.signal?.aborted) {
     throw createRuntimeRpcAbortError()
   }
-  if (automationLaunch.automationRequestHasLaunchPreferences(method, params)) {
-    const status = await callRuntimeRpc<RuntimeStatus>(target, 'status.get')
-    automationLaunch.assertAutomationLaunchPreferencesSupported(null, status.capabilities)
-  }
+  await assertAutomationRequestCapabilities(
+    method,
+    params,
+    async () =>
+      (await callRuntimeRpc<RuntimeStatus>(target, 'status.get', undefined, options)).capabilities
+  )
   const nextParams = options.suppressFeatureInteraction
     ? withBrowserPaneUiRuntimeRpcSource(params)
     : params
@@ -97,7 +89,10 @@ export async function callRuntimeRpc<TResult>(
           expectedEnvironmentPairingRevision,
           expectedEnvironmentRuntimeId: options.expectedEnvironmentRuntimeId
         })
-  return unwrapRuntimeRpcResult<TResult>(response as RuntimeRpcResponse<TResult>)
+  // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: unwrapRuntimeRpcResult validates the envelope; TResult is the caller's method contract.
+  const result = unwrapRuntimeRpcResult<TResult>(response as RuntimeRpcResponse<TResult>)
+  applySavedAutomationTabVisibility(target, method, params)
+  return result
 }
 
 export async function ensureRuntimeEnvironmentCompatible(

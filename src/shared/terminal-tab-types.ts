@@ -1,3 +1,4 @@
+import type { ExecutionHostId } from './execution-host'
 import type { AiVaultSessionTitle } from './ai-vault-session-title'
 import type { TuiAgent } from './tui-agent'
 
@@ -56,6 +57,8 @@ export type TerminalTabRecoveryLedger = {
 // ─── Terminal Tab (legacy — used by persistence and TerminalContentSlice) ─
 export type TerminalTab = {
   id: string
+  automationId?: string
+  executionHostId?: ExecutionHostId
   ptyId: string | null
   worktreeId: string
   title: string

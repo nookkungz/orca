@@ -1,3 +1,4 @@
+import { isAutomationRunTabVisible } from '@/lib/automation-run-tab-visibility'
 import type { AppState } from '../../types'
 import { toVisibleTabType } from '../../../../../shared/tab-types'
 import type { WorkspaceVisibleTabType } from '../../../../../shared/tab-types'
@@ -37,14 +38,19 @@ export function deriveActiveSurfaceForWorktree(
     activeUnifiedTabId != null
       ? ((state.unifiedTabsByWorktree[worktreeId] ?? []).find(
           (tab) =>
-            tab.id === activeUnifiedTabId && activeGroup != null && tab.groupId === activeGroup.id
+            tab.id === activeUnifiedTabId &&
+            activeGroup != null &&
+            tab.groupId === activeGroup.id &&
+            isAutomationRunTabVisible(tab)
         ) ?? null)
       : null
   const restoredFileId = state.activeFileIdByWorktree[worktreeId] ?? null
   const restoredBrowserTabId = state.activeBrowserTabIdByWorktree[worktreeId] ?? null
   const restoredTerminalTabId = state.activeTabIdByWorktree[worktreeId] ?? null
   const browserTabs = state.browserTabsByWorktree[worktreeId] ?? []
-  const terminalTabs = state.tabsByWorktree[worktreeId] ?? []
+  const terminalTabs = (state.tabsByWorktree[worktreeId] ?? []).filter((tab) =>
+    isAutomationRunTabVisible(tab)
+  )
   const fileStillOpen = restoredFileId
     ? state.openFiles.some((file) => file.id === restoredFileId && file.worktreeId === worktreeId)
     : false
@@ -120,9 +126,11 @@ export function deriveActiveSurfaceForWorktree(
     activeTabId:
       activeUnifiedTab?.contentType === 'terminal'
         ? activeUnifiedTab.entityId
-        : terminalTabStillExists
-          ? restoredTerminalTabId
-          : (terminalTabs[0]?.id ?? null),
+        : hasGroupOwnedSurface && !activeUnifiedTab
+          ? null
+          : terminalTabStillExists
+            ? restoredTerminalTabId
+            : (terminalTabs[0]?.id ?? null),
     activeTabType
   }
 }

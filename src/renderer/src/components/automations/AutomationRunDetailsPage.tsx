@@ -81,7 +81,7 @@ export function AutomationRunDetailsPage({
                 onClick={onOpenWorkspace}
               >
                 <Eye className="size-3.5" />
-                {viewState.actionLabel}
+                {translate('automation.openRunWorkspace', 'Open workspace')}
               </Button>
             ) : null}
           </>

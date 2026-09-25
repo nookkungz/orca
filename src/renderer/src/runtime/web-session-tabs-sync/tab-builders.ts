@@ -20,6 +20,7 @@ export function buildTerminalUnifiedTab(
 ): Tab {
   return {
     id: tab.id,
+    automationId: tab.automationId,
     entityId: tab.id,
     groupId,
     worktreeId: tab.worktreeId,

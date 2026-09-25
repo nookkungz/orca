@@ -165,6 +165,7 @@ export async function handleAutomationDispatchRequest({
       }
     }
     const result = await launchAgentBackgroundSession({
+      automationId: automation.id,
       agent: automation.agentId,
       launchPreferences: automation.launchPreferences ?? undefined,
       worktreeId: worktree.id,

@@ -1,3 +1,4 @@
+import { isAutomationRunTabVisible } from '@/lib/automation-run-tab-visibility'
 import type { WorkspaceVisibleTabType } from '../../../../shared/tab-types'
 import type { TerminalTab } from '../../../../shared/terminal-tab-types'
 
@@ -6,10 +7,11 @@ export function shouldRepairActiveTerminalTab(args: {
   activeTabId: string | null
   tabs: TerminalTab[]
 }): boolean {
+  const visibleTabs = args.tabs.filter((tab) => isAutomationRunTabVisible(tab))
   return (
     args.activeTabType === 'terminal' &&
-    args.tabs.length > 0 &&
-    (!args.activeTabId || !args.tabs.some((tab) => tab.id === args.activeTabId))
+    visibleTabs.length > 0 &&
+    (!args.activeTabId || !visibleTabs.some((tab) => tab.id === args.activeTabId))
   )
 }
 
@@ -22,8 +24,9 @@ export function resolveRepairedActiveTerminalTabId(args: {
   if (!shouldRepairActiveTerminalTab(args)) {
     return null
   }
-  if (args.rememberedTabId && args.tabs.some((tab) => tab.id === args.rememberedTabId)) {
+  const visibleTabs = args.tabs.filter((tab) => isAutomationRunTabVisible(tab))
+  if (args.rememberedTabId && visibleTabs.some((tab) => tab.id === args.rememberedTabId)) {
     return args.rememberedTabId
   }
-  return args.tabs[0].id
+  return visibleTabs[0]?.id ?? null
 }

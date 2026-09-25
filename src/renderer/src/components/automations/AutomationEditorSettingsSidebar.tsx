@@ -1,3 +1,5 @@
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import { AutomationModelField } from './AutomationModelField'
 import AgentCombobox from '@/components/agent/AgentCombobox'
 import { cn } from '@/lib/utils'
@@ -233,6 +235,28 @@ export function AutomationEditorSettingsSidebar({
             </div>
           </div>
         </div>
+        {!isHermesTarget && (
+          <div className="mb-4 space-y-2">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="automation-show-runs-in-tabs"
+                checked={draft.showRunsInTabs === true}
+                onCheckedChange={(checked) =>
+                  onDraftChange((current) => ({ ...current, showRunsInTabs: checked === true }))
+                }
+              />
+              <Label htmlFor="automation-show-runs-in-tabs">
+                {translate('automation.showRunsInTabs', 'Show runs in workspace tabs')}
+              </Label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {translate(
+                'automation.hiddenRunsHistory',
+                'Hidden runs remain available in Run history.'
+              )}
+            </p>
+          </div>
+        )}
         <AutomationSetupDecisionField
           createTarget={isHermesTarget ? 'hermes' : 'orca'}
           draft={draft}

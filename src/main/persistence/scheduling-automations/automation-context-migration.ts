@@ -100,6 +100,7 @@ export function normalizeAutomationSessionReuse(automation: Automation): Automat
     ...automation,
     precheck: normalizeAutomationPrecheck(automation.precheck),
     setupDecision,
+    showRunsInTabs: automation.showRunsInTabs === true,
     reuseSession: automation.workspaceMode === 'existing' && automation.reuseSession === true
   }
 }

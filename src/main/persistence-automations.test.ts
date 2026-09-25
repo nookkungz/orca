@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { rmSync, mkdtempSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
+import { getDefaultWorkspaceSession } from '../shared/constants'
+import { buildHeadlessMobileSessionTerminalTabs } from './runtime/mobile-session-terminal-projection'
 import type { PersistedState } from '../shared/persisted-state-types'
 import { toRuntimeExecutionHostId, toSshExecutionHostId } from '../shared/execution-host'
 import {
@@ -96,6 +98,81 @@ describe('Store', () => {
       launchPreferences: null,
       reuseSession: true
     })
+  })
+
+  it('defaults run tabs to hidden and persists changes across reload', async () => {
+    const store = await createStore()
+    store.addRepo(makeRepo())
+    const automation = store.createAutomation({
+      name: 'Run visibility',
+      prompt: 'Run checks',
+      agentId: 'codex',
+      projectId: 'r1',
+      workspaceMode: 'new_per_run',
+      timezone: 'UTC',
+      rrule: 'FREQ=DAILY;BYHOUR=9;BYMINUTE=0',
+      dtstart: Date.now()
+    })
+    expect(automation.showRunsInTabs).toBe(false)
+    store.updateAutomation(automation.id, { showRunsInTabs: true })
+    const reloaded = await createStore()
+    expect(reloaded.listAutomations()[0].showRunsInTabs).toBe(true)
+    reloaded.updateAutomation(automation.id, { showRunsInTabs: false })
+    reloaded.flush()
+    expect((await createStore()).listAutomations()[0].showRunsInTabs).toBe(false)
+  })
+
+  it('stamps desktop and headless run origins on either side of the session-save race', async () => {
+    const store = await createStore()
+    store.addRepo(makeRepo())
+    const automation = store.createAutomation({
+      name: 'Origins',
+      prompt: 'Check',
+      agentId: 'codex',
+      projectId: 'r1',
+      workspaceMode: 'existing',
+      workspaceId: 'wt1',
+      timezone: 'UTC',
+      rrule: 'FREQ=DAILY;BYHOUR=9;BYMINUTE=0',
+      dtstart: Date.now()
+    })
+    const session = {
+      ...getDefaultWorkspaceSession(),
+      tabsByWorktree: {
+        wt1: [
+          {
+            id: 'run-tab',
+            worktreeId: 'wt1',
+            ptyId: 'pty-1',
+            title: 'Run',
+            customTitle: null,
+            color: null,
+            sortOrder: 0,
+            createdAt: 1
+          }
+        ]
+      }
+    }
+    store.setWorkspaceSession(session)
+    const run = store.createAutomationRun(automation, 100, 'manual')
+    store.updateAutomationRun({
+      runId: run.id,
+      status: 'dispatched',
+      workspaceId: 'wt1',
+      terminalSessionId: 'run-tab',
+      terminalPtyId: 'pty-1'
+    })
+    expect(store.getWorkspaceSession().tabsByWorktree.wt1[0].automationId).toBe(automation.id)
+    store.setWorkspaceSession(session)
+    const saved = store.getWorkspaceSession()
+    expect(saved.tabsByWorktree.wt1[0].automationId).toBe(automation.id)
+    expect(
+      buildHeadlessMobileSessionTerminalTabs('wt1', saved.tabsByWorktree.wt1, saved)[0]
+    ).toMatchObject({ automationId: automation.id, ptyId: 'pty-1' })
+    store.setWorkspaceSession(session, 'runtime:other')
+    expect(
+      store.getWorkspaceSession('runtime:other').tabsByWorktree.wt1[0].automationId
+    ).toBeUndefined()
   })
 
   it('can clear an automation back to the project default branch', async () => {

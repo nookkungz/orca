@@ -1,3 +1,4 @@
+import { toRuntimeExecutionHostId } from '../../../../shared/execution-host'
 import type { RuntimeMobileSessionTabsResult } from '../../../../shared/runtime-types'
 import type { TerminalLayoutSnapshot, TerminalTab } from '../../../../shared/terminal-tab-types'
 import { normalizeTerminalLayoutPtyOwnership } from '@/components/terminal-pane/terminal-layout-pty-ownership'
@@ -163,6 +164,9 @@ export function buildMirroredTerminalTabs(
     return {
       tab: {
         id: localTabId,
+        executionHostId:
+          terminalPtyMode === 'remote' ? toRuntimeExecutionHostId(environmentId) : 'local',
+        automationId: activeSurface.automationId ?? existing?.automationId,
         ptyId: ptyIdsByLeafId[activeSurface.leafId] ?? null,
         worktreeId: snapshot.worktree,
         title,

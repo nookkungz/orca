@@ -39,6 +39,7 @@ export type AutomationDraft = {
   name: string
   prompt: string
   agentId: TuiAgent
+  showRunsInTabs?: boolean
   launchPreferences?: Automation['launchPreferences']
   projectId: string
   workspaceMode: AutomationWorkspaceMode

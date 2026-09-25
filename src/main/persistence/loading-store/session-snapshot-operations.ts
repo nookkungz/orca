@@ -1,3 +1,4 @@
+import { automationSessionTabOrigins } from '../scheduling-automations/automation-session-tab-origins'
 import type { PersistedState } from '../../../shared/persisted-state-types'
 import type {
   WorkspaceSessionPatch,
@@ -43,6 +44,11 @@ export class SessionSnapshotOperations {
 
   setWorkspaceSession(session: PersistedState['workspaceSession'], hostId?: string | null): void {
     const resolved = resolveHostId(hostId)
+    session = automationSessionTabOrigins(
+      this[sessionSnapshotOperationsContext].runtime.state,
+      session,
+      resolved
+    )
     if (resolved === LOCAL_EXECUTION_HOST_ID) {
       setLocalWorkspaceSession(this, session)
       return
@@ -55,6 +61,11 @@ export class SessionSnapshotOperations {
     hostId?: string | null
   ): void {
     const resolved = resolveHostId(hostId)
+    session = automationSessionTabOrigins(
+      this[sessionSnapshotOperationsContext].runtime.state,
+      session,
+      resolved
+    )
     if (resolved === LOCAL_EXECUTION_HOST_ID) {
       setLocalWorkspaceSession(this, session, true)
       return

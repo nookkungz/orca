@@ -32,6 +32,7 @@ export function buildHeadlessMobileSessionTerminalTabs(
         return [
           {
             type: 'terminal' as const,
+            ...(tab.automationId ? { automationId: tab.automationId } : {}),
             id: `${tab.id}::${leafId}`,
             parentTabId: tab.id,
             leafId,

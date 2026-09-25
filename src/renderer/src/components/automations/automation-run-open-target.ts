@@ -1,5 +1,7 @@
 import type { AutomationRun } from '../../../../shared/automations-types'
-import { parsePaneKey } from '../../../../shared/stable-pane-id'
+import { toWebTerminalSurfaceTabId } from '../../../../shared/terminal-surface-id'
+import { parseRemoteRuntimePtyId } from '../../../../shared/remote-runtime-pty-id'
+import { makePaneKey, parsePaneKey } from '../../../../shared/stable-pane-id'
 import type {
   TerminalLayoutSnapshot,
   TerminalPaneLayoutNode
@@ -13,9 +15,30 @@ export type AutomationRunPaneTarget = {
 }
 
 export function getAutomationRunOpenTabId(
-  run: Pick<AutomationRun, 'terminalPaneKey'>
+  run: Pick<AutomationRun, 'terminalPaneKey'>,
+  environmentId?: string
 ): string | null {
-  return parsePaneKey(run.terminalPaneKey ?? '')?.tabId ?? null
+  const tabId = parsePaneKey(run.terminalPaneKey ?? '')?.tabId
+  return tabId ? (environmentId ? toWebTerminalSurfaceTabId(tabId) : tabId) : null
+}
+
+/** Remote rows name host tabs; the client mirrors those identities with an encoded tab ID. */
+export function automationRunForEnvironment(
+  run: AutomationRun,
+  environmentId: string | undefined,
+  layout: TerminalLayoutSnapshot | null | undefined
+): AutomationRun {
+  const parsed = parsePaneKey(run.terminalPaneKey ?? '')
+  if (!environmentId || !parsed) {
+    return run
+  }
+  const ptyId = layout?.ptyIdsByLeafId?.[parsed.leafId]
+  const owner = ptyId ? parseRemoteRuntimePtyId(ptyId) : null
+  return {
+    ...run,
+    terminalPaneKey: makePaneKey(toWebTerminalSurfaceTabId(parsed.tabId), parsed.leafId),
+    terminalPtyId: owner?.environmentId === environmentId ? (ptyId ?? null) : null
+  }
 }
 
 export function automationRunMatchesPaneKey(

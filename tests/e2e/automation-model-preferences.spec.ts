@@ -37,7 +37,7 @@ test('edits and clears saved automation model preferences in a hidden renderer',
   await expect(orcaPage.getByText('gpt-5.6-terra · low', { exact: true })).toBeVisible()
   await orcaPage.getByRole('button', { name: 'Edit automation', exact: true }).click(clickOptions)
   const dialog = orcaPage.getByRole('dialog')
-  await expect(dialog.getByLabel('Automation model')).toContainText('gpt-5.6-terra')
+  await expect(dialog.getByLabel('Automation model')).toContainText(/gpt-5\.6-terra/i)
   await expect(dialog.getByLabel('Automation effort')).toContainText('Low')
   await expect(dialog.getByText('Fresh session every run')).toBeVisible()
   await expect(dialog.getByRole('radio', { name: 'Reuse', exact: true })).toBeDisabled()

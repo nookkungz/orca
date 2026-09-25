@@ -1,3 +1,4 @@
+import { isAutomationRunTabVisible } from './automation-run-tab-visibility'
 import { focusTerminalTabSurface } from '@/lib/focus-terminal-tab-surface'
 import { useAppStore } from '@/store'
 import type { AppState } from '@/store/types'
@@ -40,7 +41,7 @@ export function resolveTabNumberShortcutTarget(
   }
 
   const groupTabs = (state.unifiedTabsByWorktree[worktreeId] ?? []).filter(
-    (tab) => tab.groupId === group.id
+    (tab) => tab.groupId === group.id && isAutomationRunTabVisible(tab)
   )
   const tabById = new Map(groupTabs.map((tab) => [tab.id, tab]))
   // Why: mirror TabBar's reconcile behavior. Stored group tabOrder is the

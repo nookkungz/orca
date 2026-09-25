@@ -1,7 +1,4 @@
-import {
-  automationRequestHasLaunchPreferences,
-  assertAutomationLaunchPreferencesSupported
-} from '../../shared/automation-launch-preferences'
+import { assertAutomationRequestCapabilities } from '../../shared/automation-request-capabilities'
 import { randomUUID } from 'node:crypto'
 import type { CliStatusResult, RuntimeStatus } from '../../shared/runtime-types'
 import { runtimeHostConnectionState } from '../../shared/runtime-host-connection-state'
@@ -94,10 +91,11 @@ export class RuntimeClient {
       terminalPromptPreflight?: { runtimeId: string | null }
     } & RuntimeOrchestrationEnvelope
   ): Promise<RuntimeRpcSuccess<TResult>> {
-    if (automationRequestHasLaunchPreferences(method, params)) {
-      const status = await this.call<RuntimeStatus>('status.get')
-      assertAutomationLaunchPreferencesSupported(null, status.result.capabilities)
-    }
+    await assertAutomationRequestCapabilities(
+      method,
+      params,
+      async () => (await this.call<RuntimeStatus>('status.get')).result.capabilities
+    )
     const effectiveTimeoutMs = options?.timeoutMs ?? this.resolveMethodTimeoutMs(method, params)
     const orchestrationMutation = isOrchestrationMutation(method, params)
     const terminalPromptMutation = isTerminalPromptMutation(method, params)

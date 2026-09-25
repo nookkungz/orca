@@ -1,3 +1,4 @@
+import { isAutomationRunTabVisible } from '@/lib/automation-run-tab-visibility'
 import type { Tab, TabGroup } from '../../../../shared/tab-types'
 import type { AppState } from '../../store/types'
 import { reconcileTabOrder } from './reconcile-order'
@@ -14,6 +15,7 @@ export type ActiveTabNavOrderIds = {
   browserIds?: string[]
   simulatorIds?: string[]
   agentSessionIds?: string[]
+  includeHiddenAutomationRuns?: boolean
 }
 
 /**
@@ -31,8 +33,12 @@ export function getGroupVisibleTabOrder(
   editorEntityIds: ReadonlySet<string>,
   browserEntityIds: ReadonlySet<string>,
   simulatorTabIds: ReadonlySet<string> = new Set(),
-  preserveTypeCollisions = false
+  preserveTypeCollisions = false,
+  includeHiddenAutomationRuns = false
 ): VisibleTabRef[] {
+  if (!includeHiddenAutomationRuns) {
+    groupTabs = groupTabs.filter((tab) => isAutomationRunTabVisible(tab))
+  }
   const tabsById = new Map(groupTabs.map((t) => [t.id, t]))
   const toRef = (tab: Tab): VisibleTabRef | null => {
     if (tab.contentType === 'terminal') {
@@ -176,7 +182,12 @@ export function getActiveTabNavOrder(
   worktreeId: string,
   ids: ActiveTabNavOrderIds = {}
 ): VisibleTabRef[] {
-  const terminalIds = ids.terminalIds ?? (state.tabsByWorktree[worktreeId] ?? []).map((t) => t.id)
+  const visibleTerminals = (state.tabsByWorktree[worktreeId] ?? []).filter(
+    (tab) => ids.includeHiddenAutomationRuns || isAutomationRunTabVisible(tab)
+  )
+  const terminalIds =
+    ids.terminalIds?.filter((id) => visibleTerminals.some((tab) => tab.id === id)) ??
+    visibleTerminals.map((t) => t.id)
   const editorIds =
     ids.editorIds ?? state.openFiles.filter((f) => f.worktreeId === worktreeId).map((f) => f.id)
   const browserIds =
@@ -213,7 +224,9 @@ export function getActiveTabNavOrder(
       groupTerminalIds,
       new Set(editorIds),
       new Set(browserIds),
-      new Set(simulatorIds)
+      new Set(simulatorIds),
+      false,
+      ids.includeHiddenAutomationRuns
     )
   }
 

@@ -1,3 +1,7 @@
+import {
+  isAutomationRunTabVisible,
+  useAutomationRunTabVisibility
+} from '@/lib/automation-run-tab-visibility'
 import { useMemo } from 'react'
 import type { OpenFile } from '@/store/slices/editor'
 import type { BrowserTab as BrowserTabState } from '../../../../shared/browser-workspace-types'
@@ -35,6 +39,7 @@ export function useTabGroupItemProjections({
   worktreeId: string
   worktreeState: TabGroupWorktreeSnapshot
 }) {
+  useAutomationRunTabVisibility()
   const group = useMemo(
     () => worktreeState.groups.find((item) => item.id === groupId) ?? null,
     [groupId, worktreeState.groups]
@@ -44,7 +49,8 @@ export function useTabGroupItemProjections({
     [groupId, worktreeState.unifiedTabs]
   )
   const activeItemId = group?.activeTabId ?? null
-  const activeTab = groupTabs.find((item) => item.id === activeItemId) ?? null
+  const activeTab =
+    groupTabs.find((item) => item.id === activeItemId && isAutomationRunTabVisible(item)) ?? null
   // Why: shell identity lives on the terminal tab (not the unified tab) so icons survive default-shell changes.
   const terminalTabById = useMemo(
     () => new Map(worktreeState.terminalTabs.map((item) => [item.id, item])),

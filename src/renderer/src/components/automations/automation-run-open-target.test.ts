@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { AutomationRun } from '../../../../shared/automations-types'
 import {
+  automationRunForEnvironment,
+  getAutomationRunOpenTabId,
   automationRunMatchesPaneKey,
   buildAutomationRunOpenLayout,
   canOpenAutomationRunOpenTarget,
@@ -45,6 +47,21 @@ function run(overrides: Partial<AutomationRun> = {}): AutomationRun {
 }
 
 describe('automation run open target', () => {
+  it('opens the original mirrored pane only on the selected runtime host', () => {
+    const layout = { ...runLeafLayout, ptyIdsByLeafId: { [leafId]: 'remote:windows@@term_run' } }
+    const mirrored = automationRunForEnvironment(run(), 'windows', layout)
+    expect(getAutomationRunOpenTabId(run(), 'windows')).toBe('web-terminal-tab-1')
+    expect(
+      resolveAutomationRunOpenTarget({
+        run: mirrored,
+        terminalTabExists: true,
+        currentLayout: layout,
+        livePtyIds: ['remote:windows@@term_run']
+      })?.tabId
+    ).toBe('web-terminal-tab-1')
+    expect(automationRunForEnvironment(run(), 'other-host', layout).terminalPtyId).toBeNull()
+  })
+
   it('matches exact pane identity only', () => {
     expect(automationRunMatchesPaneKey(run(), paneKey)).toBe(true)
     expect(automationRunMatchesPaneKey(run(), splitPaneKey)).toBe(false)
