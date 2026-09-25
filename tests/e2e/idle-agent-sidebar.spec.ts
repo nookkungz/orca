@@ -50,6 +50,16 @@ test('sidebar counts fresh idle agent tabs before any prompt and removes closed 
         .parse(result).outcome.handle
     )
   }
+  await expect
+    .poll(() =>
+      orcaPage.evaluate(() => {
+        const state = window.__store!.getState()
+        return (state.tabsByWorktree[state.activeWorktreeId!] ?? []).filter(
+          (tab) => tab.launchAgent === 'codex' && tab.title === 'workspace'
+        ).length
+      })
+    )
+    .toBe(2)
   await expect(orcaPage.getByRole('button', { name: /All 2 agents idle/ })).toBeVisible()
   await orcaPage.screenshot({ path: testInfo.outputPath('idle-agents.png') })
   for (const terminal of handles) {
