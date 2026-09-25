@@ -1,3 +1,5 @@
+import { isShellProcess } from '../../../../shared/shell-process-detection'
+import type { RetainedAgentEntry } from '@/store/slices/agent-status'
 import type { DashboardAgentRow } from '@/components/dashboard/useDashboardData'
 import { formatAgentTypeLabel, isClaudeManagementTitle } from '@/lib/agent-status'
 import { isCursorAgentTitle } from '../../../../shared/agent-title-core'
@@ -56,6 +58,7 @@ const CLAUDE_AGENT_TOKEN_RE = /(?<![\w./\\-])claude(?![\w./\\-])/i
 
 export function buildTitleDerivedAgentRows(args: {
   tabs: TerminalTab[]
+  retained?: RetainedAgentEntry[]
   runtimePaneTitlesByTabId?: Record<string, Record<number, string>>
   ptyIdsByTabId?: Record<string, string[]>
   terminalLayoutsByTabId?: Record<string, TerminalLayoutSnapshot | undefined>
@@ -64,6 +67,7 @@ export function buildTitleDerivedAgentRows(args: {
   now: number
 }): DashboardAgentRow[] {
   const rows: DashboardAgentRow[] = []
+  const retainedPaneKeys = new Set(args.retained?.map(({ entry }) => entry.paneKey))
   const runtimePaneTitlesByTabId = args.runtimePaneTitlesByTabId ?? EMPTY_RUNTIME_TITLES
   const ptyIdsByTabId = args.ptyIdsByTabId ?? EMPTY_LIVE_PTY_IDS
   const terminalLayoutsByTabId = args.terminalLayoutsByTabId ?? EMPTY_TERMINAL_LAYOUTS
@@ -113,6 +117,7 @@ export function buildTitleDerivedAgentRows(args: {
           leafId,
           title,
           ownerAgentType: resolveTitleDerivedPaneOwner(tab, layout, leafId),
+          allowLaunchFallback: !retainedPaneKeys.has(makePaneKey(tab.id, leafId)),
           now: args.now,
           runtimeAgentOrchestrationByPaneKey: args.runtimeAgentOrchestrationByPaneKey
         })
@@ -134,6 +139,7 @@ export function buildTitleDerivedAgentRows(args: {
       leafId,
       title: tab.title,
       ownerAgentType: resolveTitleDerivedPaneOwner(tab, layout, leafId),
+      allowLaunchFallback: !retainedPaneKeys.has(makePaneKey(tab.id, leafId)),
       now: args.now,
       runtimeAgentOrchestrationByPaneKey: args.runtimeAgentOrchestrationByPaneKey
     })
@@ -156,6 +162,7 @@ function buildTitleDerivedAgentRow(args: {
   leafId: string
   title: string
   ownerAgentType: AgentType | null
+  allowLaunchFallback: boolean
   now: number
   runtimeAgentOrchestrationByPaneKey?: Record<string, AgentStatusOrchestrationContext>
 }): DashboardAgentRow | null {
@@ -172,32 +179,33 @@ function buildTitleDerivedAgentRow(args: {
   // Why (cursor): the native `cursor agent` literal is deliberately status-less so a
   // redraw cannot stomp hook state — but it still identifies a live pane, so the row
   // reads idle instead of vanishing (#10258).
-  const status = isClaudeAgentsTitle
+  const titleStatus = isClaudeAgentsTitle
     ? 'idle'
     : (classifyTitleActivity(title) ?? (isCursorAgentTitle(title) ? 'idle' : null))
-  const label = isClaudeAgentsTitle ? 'Claude Code' : resolveTitleActivityLabel(title)
-  if (!status || !label) {
-    return null
-  }
-  if (!isTerminalLeafId(args.leafId)) {
+  // Host-owned launch identity counts a connected, unsplit agent before its first status hook.
+  const launchOnly =
+    !titleStatus && args.allowLaunchFallback && !isShellProcess(title) ? args.ownerAgentType : null
+  const status = titleStatus ?? (launchOnly ? 'idle' : null)
+  const label = isClaudeAgentsTitle
+    ? 'Claude Code'
+    : (resolveTitleActivityLabel(title) ?? (launchOnly ? formatAgentTypeLabel(launchOnly) : null))
+  if (!status || !label || !isTerminalLeafId(args.leafId)) {
     return null
   }
   const paneKey = makePaneKey(args.tab.id, args.leafId)
   const orchestration = args.runtimeAgentOrchestrationByPaneKey?.[paneKey]
-  const titleAgentType = isClaudeAgentsTitle
-    ? 'claude'
-    : resolveTitleDerivedAgentType(title, label, args.ownerAgentType)
-  // Why: a status frame proves activity, not identity, so the resolver drops it.
-  // Hook-less agents over SSH (Codex, #8711; OpenCode's '. '/'* ' frames, #8940)
-  // surface only decorated task titles; fall back to the pane's known owner instead
-  // of hiding the pane. Safe because the `!status || !label` gate above already
-  // rejects plain shell titles — this path must never manufacture a row from one.
+  const titleAgentType = launchOnly
+    ? args.ownerAgentType
+    : isClaudeAgentsTitle
+      ? 'claude'
+      : resolveTitleDerivedAgentType(title, label, args.ownerAgentType)
+  // Identity-free status titles still belong to the pane-scoped launch owner.
   const agentType = titleAgentType ?? args.ownerAgentType
   if (!agentType) {
     return null
   }
   const rowLabel = titleAgentType ? label : formatAgentTypeLabel(agentType)
-  const rowState = titleStatusToRowState(status)
+  const rowState = status === 'permission' ? 'waiting' : status
   const secondary =
     status === 'permission' ? 'Needs input' : status === 'working' ? 'Running' : 'Idle'
   const entryState: AgentStatusState = rowState === 'waiting' ? 'waiting' : 'working'
@@ -220,7 +228,7 @@ function buildTitleDerivedAgentRow(args: {
     // 'working' while the row itself reports idle. That contradiction is out of scope here —
     // this tag is what makes it findable instead of indistinguishable from a real hook row.
     observation: {
-      origin: 'title',
+      origin: launchOnly ? 'launch' : 'title',
       authorityId: TITLE_DERIVED_AGENT_ROW_AUTHORITY_ID,
       incarnation: 0,
       revision: args.now,
@@ -303,18 +311,6 @@ export function resolveAgentTypeFromTerminalTitle(
         options
       ) ?? null)
     : null
-}
-
-function titleStatusToRowState(
-  status: 'working' | 'permission' | 'idle'
-): AgentStatusState | 'idle' {
-  if (status === 'permission') {
-    return 'waiting'
-  }
-  if (status === 'working') {
-    return 'working'
-  }
-  return 'idle'
 }
 
 /**

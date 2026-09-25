@@ -539,3 +539,64 @@ describe('split-pane runtime title attribution', () => {
     ])
   })
 })
+
+describe('new idle agent tabs', () => {
+  it.each<TuiAgent>(['codex', 'antigravity'])(
+    'counts a live %s launch before its first hook',
+    (launchAgent) => {
+      const args = {
+        tabs: [makeTab('tab-new', { title: 'workspace', launchAgent })],
+        entries: [],
+        retained: [],
+        ptyIdsByTabId: { 'tab-new': ['pty-new'] },
+        terminalLayoutsByTabId: { 'tab-new': makeSingleLayout(LEAF_ID_1) },
+        now: 2000
+      }
+      const rows = buildWorktreeAgentRows(args)
+      expect(rows.map((row) => [row.agentType, row.state])).toEqual([[launchAgent, 'idle']])
+      expect(rows[0]?.entry.observation?.origin).toBe('launch')
+      const first = rows[0]
+      if (!first) {
+        throw new Error('Missing idle row')
+      }
+      expect(
+        buildWorktreeAgentRows({
+          ...args,
+          retained: [
+            {
+              ...first,
+              entry: { ...first.entry, state: 'done' },
+              worktreeId: 'wt-1',
+              startedAt: 1000
+            }
+          ]
+        }).map((row) => row.state)
+      ).toEqual(['done'])
+      expect(
+        buildWorktreeAgentRows({
+          ...args,
+          tabs: [
+            makeTab('tab-new', {
+              title: 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
+              launchAgent
+            })
+          ]
+        })
+      ).toHaveLength(0)
+
+      expect(buildWorktreeAgentRows({ ...args, ptyIdsByTabId: {} })).toHaveLength(0)
+      expect(
+        buildWorktreeAgentRows({
+          ...args,
+          tabs: [makeTab('tab-new', { title: 'workspace' })]
+        })
+      ).toHaveLength(0)
+      expect(
+        buildWorktreeAgentRows({
+          ...args,
+          terminalLayoutsByTabId: { 'tab-new': makeSplitLayout() }
+        })
+      ).toHaveLength(0)
+    }
+  )
+})
