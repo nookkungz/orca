@@ -5,7 +5,12 @@ import { test, expect } from './helpers/orca-app'
 import { waitForSessionReady } from './helpers/store'
 import { quoteStartupArg } from '../../src/shared/tui-agent-startup-shell'
 
-const Launch = z.object({ pid: z.number(), cwd: z.string(), argv: z.array(z.string()) })
+const Launch = z.object({
+  instanceId: z.string().uuid(),
+  pid: z.number(),
+  cwd: z.string(),
+  argv: z.array(z.string())
+})
 
 test('Run Now and scheduled model overrides launch fresh processes in both workspace modes', async ({
   orcaPage
@@ -19,7 +24,8 @@ test('Run Now and scheduled model overrides launch fresh processes in both works
   writeFileSync(
     script,
     `import { appendFileSync } from 'node:fs';
-const launch = { pid: process.pid, cwd: process.cwd(), argv: process.argv.slice(2) };
+import { randomUUID } from 'node:crypto';
+const launch = { instanceId: randomUUID(), pid: process.pid, cwd: process.cwd(), argv: process.argv.slice(2) };
 appendFileSync(${JSON.stringify(log)}, JSON.stringify(launch) + '\\n');
 console.log('AUTOMATION_MODEL_LAUNCH', JSON.stringify(launch));
 setTimeout(() => process.exit(0), 500);
@@ -101,7 +107,8 @@ setTimeout(() => process.exit(0), 500);
     }
   }
   const manual = launches()
-  expect(new Set(manual.map((launch) => launch.pid)).size).toBe(8)
+  // Windows can recycle a PID after an earlier process exits.
+  expect(new Set(manual.map((launch) => launch.instanceId)).size).toBe(8)
   for (const launch of manual) {
     expect(launch.argv).not.toContain('obsolete')
     if (launch.argv.includes('gpt-5.6-terra')) {
@@ -132,6 +139,6 @@ setTimeout(() => process.exit(0), 500);
   }, ids[0])
   expect(launches()[8].argv).toContain('gpt-5.6-terra')
   expect(launches()[8].argv).toContain('model_reasoning_effort=low')
-  expect(new Set(launches().map((launch) => launch.pid)).size).toBe(launches().length)
+  expect(new Set(launches().map((launch) => launch.instanceId)).size).toBe(launches().length)
   await expect(orcaPage.getByText('Launch codex existing', { exact: true })).toBeVisible()
 })
