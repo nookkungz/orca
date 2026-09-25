@@ -45,6 +45,8 @@ type TestRepo = {
 }
 
 const state = {
+  hydrationSucceeded: true,
+  startupWorktreeRefreshCompleted: true,
   activeView: 'terminal' as const,
   activeWorktreeId: 'wt-active',
   activeTabId: 'tab-active',
@@ -179,10 +181,10 @@ vi.mock('@/lib/browser-uuid', () => ({
 }))
 
 vi.mock('@/store', () => ({
-  useAppStore: {
+  useAppStore: Object.assign((selector: (value: typeof state) => unknown) => selector(state), {
     getState: () => state,
     subscribe: mockStoreSubscribe
-  }
+  })
 }))
 
 describe('useAutomationDispatchEvents setup launch', () => {
