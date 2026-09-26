@@ -15,7 +15,7 @@ export function createSetActiveFolderWorkspace(
   set: WorktreeSliceSet,
   get: WorktreeSliceGet
 ): WorktreeSlice['setActiveFolderWorkspace'] {
-  return (folderWorkspaceId, executionHostId) => {
+  return (folderWorkspaceId, executionHostId, options) => {
     const workspaceKey = folderWorkspaceKey(folderWorkspaceId)
     const workspace = findKnownWorktreeById(get(), workspaceKey, executionHostId)
     if (!workspace) {
@@ -64,8 +64,10 @@ export function createSetActiveFolderWorkspace(
       }
     })
     // Why: cleared after the set() so a waiting pane connects against the activated state.
-    clearWorktreeSleepIntent(workspaceKey)
-    if (workspace.isUnread) {
+    if (!options?.readOnlySurface) {
+      clearWorktreeSleepIntent(workspaceKey)
+    }
+    if (workspace.isUnread && !options?.readOnlySurface) {
       void get().updateFolderWorkspace(
         folderWorkspaceId,
         { isUnread: false },

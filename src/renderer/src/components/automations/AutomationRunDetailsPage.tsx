@@ -73,16 +73,21 @@ export function AutomationRunDetailsPage({
               </Button>
             ) : null}
             {viewState ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!viewState.canOpen}
-                onClick={onOpenWorkspace}
-              >
-                <Eye className="size-3.5" />
-                {translate('automation.openRunWorkspace', 'Open workspace')}
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!viewState.canOpen}
+                  onClick={onOpenWorkspace}
+                >
+                  <Eye className="size-3.5" />
+                  {translate('automation.openRunWorkspace', 'Open workspace')}
+                </Button>
+                {!viewState.canOpen ? (
+                  <span className="text-xs text-muted-foreground">{viewState.statusLabel}</span>
+                ) : null}
+              </>
             ) : null}
           </>
         }

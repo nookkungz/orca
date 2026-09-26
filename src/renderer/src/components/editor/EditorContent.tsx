@@ -3,6 +3,7 @@ import type { MarkdownViewMode, OpenFile, PendingEditorReveal } from '@/store/sl
 import type { GitDiffResult } from '../../../../shared/git-diff-compare-types'
 import type { GitStatusEntry } from '../../../../shared/git-status-types'
 import { CheckRunDetailsPanel } from './CheckRunDetailsPanel'
+import { AutomationRunResultTab } from '@/components/automations/AutomationRunResultTab'
 import { CombinedDiffViewer, MarkdownPreview } from './editor-lazy-views'
 import { EditorConflictReviewSurface } from './EditorConflictReviewSurface'
 import { EditorDiffFileSurface } from './EditorDiffFileSurface'
@@ -122,6 +123,19 @@ export function EditorContent({
       activeFile.diffSource === 'combined-uncommitted' ||
       activeFile.diffSource === 'combined-branch' ||
       activeFile.diffSource === 'combined-commit')
+
+  if (activeFile.mode === 'automation-run') {
+    return activeFile.automationRun && activeFile.automationRunHostId ? (
+      <AutomationRunResultTab
+        run={activeFile.automationRun}
+        hostId={activeFile.automationRunHostId}
+      />
+    ) : (
+      <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+        {translate('automation.savedRunUnavailable', 'Saved run details are unavailable.')}
+      </div>
+    )
+  }
 
   if (activeFile.mode === 'check-details') {
     const checkRunDetails = activeFile.checkRunDetails

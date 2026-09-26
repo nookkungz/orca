@@ -18,6 +18,7 @@ export function useAutomationsPageStoreState() {
   const repos = useAppStore((s) => s.repos)
   const projectHostSetups = useAppStore((s) => s.projectHostSetups)
   const worktreesByRepo = useAppStore((s) => s.worktreesByRepo)
+  const folderWorkspaces = useAppStore((s) => s.folderWorkspaces)
   const unifiedTabsByWorktree = useAppStore((s) => s.unifiedTabsByWorktree)
   const terminalLayoutsByTabId = useAppStore((s) => s.terminalLayoutsByTabId)
   const ptyIdsByTabId = useAppStore((s) => s.ptyIdsByTabId)
@@ -67,6 +68,7 @@ export function useAutomationsPageStoreState() {
     repos,
     projectHostSetups,
     worktreesByRepo,
+    folderWorkspaces,
     unifiedTabsByWorktree,
     terminalLayoutsByTabId,
     ptyIdsByTabId,

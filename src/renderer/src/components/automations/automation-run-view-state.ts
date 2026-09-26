@@ -1,6 +1,6 @@
 import type { Automation, AutomationRun } from '../../../../shared/automations-types'
 
-export type AutomationRunViewAvailability = 'terminal' | 'workspace' | 'snapshot' | 'metadata'
+export type AutomationRunViewAvailability = 'terminal' | 'snapshot' | 'metadata'
 
 export type AutomationRunViewState = {
   availability: AutomationRunViewAvailability
@@ -57,7 +57,6 @@ export function getAutomationRunViewState({
   workspaceExists: boolean
   terminalTargetExists: boolean
 }): AutomationRunViewState {
-  const hasTerminalIdentity = Boolean(run.terminalPaneKey && run.terminalPtyId)
   if (run.workspaceId && workspaceExists && terminalTargetExists) {
     return {
       availability: 'terminal',
@@ -67,30 +66,12 @@ export function getAutomationRunViewState({
     }
   }
 
-  if (run.workspaceId && workspaceExists && hasTerminalIdentity) {
-    return {
-      availability: 'terminal',
-      actionLabel: 'View run',
-      statusLabel: 'Run terminal is unavailable.',
-      canOpen: true
-    }
-  }
-
   if (run.workspaceId && workspaceExists) {
     return {
-      availability: 'workspace',
-      actionLabel: 'Resume workspace',
-      statusLabel: 'Workspace is available.',
-      canOpen: true
-    }
-  }
-
-  if (run.outputSnapshot?.content.trim()) {
-    return {
       availability: 'snapshot',
-      actionLabel: 'Snapshot saved',
-      statusLabel: 'Showing saved run snapshot.',
-      canOpen: false
+      actionLabel: 'View saved run',
+      statusLabel: 'Saved run result is available.',
+      canOpen: true
     }
   }
 

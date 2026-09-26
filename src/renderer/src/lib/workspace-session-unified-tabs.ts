@@ -1,6 +1,7 @@
 import type { Tab, TabGroup, TabGroupLayoutNode } from '../../../shared/tab-types'
 import type { WorkspaceSessionState } from '../../../shared/workspace-session-state-types'
 import type { WorkspaceSessionSnapshot } from './workspace-session'
+import { isAutomationRunResultTabId } from './automation-run-result-tab-id'
 
 type PersistedUnifiedTabSessionData = Pick<
   WorkspaceSessionState,
@@ -77,7 +78,9 @@ export function buildPersistedUnifiedTabSessionData(
   ])
 
   for (const worktreeId of worktreeIds) {
-    const tabs = sourceTabs[worktreeId] ?? []
+    const tabs = (sourceTabs[worktreeId] ?? []).filter(
+      (tab) => !isAutomationRunResultTabId(tab.entityId)
+    )
     if (tabs.length === 0) {
       continue
     }

@@ -1,6 +1,7 @@
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AppState } from '@/store'
+import type { TerminalTab } from '../../../shared/terminal-tab-types'
 import { useAppStore } from '@/store'
 import type {
   RuntimeMobileSessionTabsResult,
@@ -264,6 +265,67 @@ describe('worktree agent activation seam', () => {
     await waitForWorktreeAgentActivationGateForTests(worktree.id)
 
     expect(useAppStore.getState().tabsByWorktree[worktree.id] ?? []).toHaveLength(0)
+  })
+
+  it('opens a saved result without starting a terminal or resuming an agent', () => {
+    const worktree = makeWorktree()
+    const closedTerminal: TerminalTab = {
+      id: 'closed-terminal',
+      worktreeId: worktree.id,
+      ptyId: null,
+      title: 'Closed run',
+      customTitle: null,
+      color: null,
+      sortOrder: 0,
+      createdAt: 1,
+      generation: 3
+    }
+    useAppStore.setState({
+      ...baseState(),
+      tabsByWorktree: { [worktree.id]: [closedTerminal] },
+      unifiedTabsByWorktree: {
+        [worktree.id]: [
+          {
+            id: closedTerminal.id,
+            entityId: closedTerminal.id,
+            worktreeId: worktree.id,
+            groupId: 'group-1',
+            contentType: 'terminal',
+            label: 'Closed run',
+            customLabel: null,
+            color: null,
+            sortOrder: 0,
+            createdAt: 1
+          }
+        ]
+      },
+      groupsByWorktree: {
+        [worktree.id]: [
+          {
+            id: 'group-1',
+            worktreeId: worktree.id,
+            activeTabId: closedTerminal.id,
+            tabOrder: [closedTerminal.id]
+          }
+        ]
+      },
+      activeGroupIdByWorktree: { [worktree.id]: 'group-1' }
+    })
+    const { runtimeCall, listSessions } = stubInventory()
+    const resume = vi.spyOn(sleepingResume, 'resumeSleepingAgentSessionsForWorktree')
+
+    expect(
+      activateAndRevealWorktree(worktree.id, {
+        providesInitialSurface: true,
+        readOnlySurface: true,
+        notifyHostRuntime: false
+      })
+    ).toEqual({ primaryTabId: null })
+    expect(useAppStore.getState().tabsByWorktree[worktree.id]).toEqual([closedTerminal])
+    expect(useAppStore.getState().refreshGitHubForWorktreeIfStale).not.toHaveBeenCalled()
+    expect(resume).not.toHaveBeenCalled()
+    expect(runtimeCall).not.toHaveBeenCalled()
+    expect(listSessions).not.toHaveBeenCalled()
   })
 
   // A paired-runtime owner is always omitted from its own scoped census, and an SSH relay that

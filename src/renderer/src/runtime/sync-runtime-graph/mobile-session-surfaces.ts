@@ -84,6 +84,7 @@ export function isMobileFileDiffSource(
 export function isMobilePublishableOpenFile(file: AppState['openFiles'][number]): boolean {
   // Combined diff tabs use display labels as paths and need the desktop renderer.
   return !(
+    file.mode === 'automation-run' ||
     file.diffSource === 'combined-all' ||
     file.diffSource === 'combined-uncommitted' ||
     file.diffSource === 'combined-branch' ||

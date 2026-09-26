@@ -13,6 +13,8 @@ export type WorktreeActivationSurfaceSelection = {
   agent?: TuiAgent | null
   /** A navigation caller is about to open its own editor, diff, or other non-terminal surface. */
   providesInitialSurface?: boolean
+  /** Opening a saved, read-only surface must not wake agents or seed terminals. */
+  readOnlySurface?: boolean
 }
 
 export type WorktreeActivationOptions = WorktreeActivationSurfaceSelection & {

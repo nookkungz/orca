@@ -76,7 +76,7 @@ describe('automation run view state', () => {
     })
   })
 
-  it('keeps View run for exact terminal identity even before the live target is resolved', () => {
+  it('opens the saved result when the terminal target was closed', () => {
     expect(
       getAutomationRunViewState({
         run: makeRun(),
@@ -84,14 +84,14 @@ describe('automation run view state', () => {
         terminalTargetExists: false
       })
     ).toMatchObject({
-      availability: 'terminal',
-      actionLabel: 'View run',
-      statusLabel: 'Run terminal is unavailable.',
+      availability: 'snapshot',
+      actionLabel: 'View saved run',
+      statusLabel: 'Saved run result is available.',
       canOpen: true
     })
   })
 
-  it('resumes the workspace only when there is no exact terminal identity', () => {
+  it('opens the saved result when the run has no terminal identity', () => {
     expect(
       getAutomationRunViewState({
         run: makeRun({ terminalPaneKey: null, terminalPtyId: null }),
@@ -99,9 +99,10 @@ describe('automation run view state', () => {
         terminalTargetExists: false
       })
     ).toMatchObject({
-      availability: 'workspace',
-      actionLabel: 'Resume workspace',
-      statusLabel: 'Workspace is available.'
+      availability: 'snapshot',
+      actionLabel: 'View saved run',
+      statusLabel: 'Saved run result is available.',
+      canOpen: true
     })
   })
 
@@ -133,7 +134,7 @@ describe('automation run view state', () => {
     })
   })
 
-  it('keeps a deleted-workspace run viewable through its saved snapshot', () => {
+  it('keeps a deleted-workspace run in history with a disabled workspace action', () => {
     expect(
       getAutomationRunViewState({
         run: makeRun({
@@ -148,11 +149,20 @@ describe('automation run view state', () => {
         terminalTargetExists: false
       })
     ).toMatchObject({
-      availability: 'snapshot',
-      actionLabel: 'Snapshot saved',
-      statusLabel: 'Showing saved run snapshot.',
+      availability: 'metadata',
+      statusLabel: 'Workspace no longer available',
       canOpen: false
     })
+  })
+
+  it('opens a run tab with a no-output notice when the workspace remains', () => {
+    expect(
+      getAutomationRunViewState({
+        run: makeRun({ outputSnapshot: null, terminalPaneKey: null, terminalPtyId: null }),
+        workspaceExists: true,
+        terminalTargetExists: false
+      })
+    ).toMatchObject({ availability: 'snapshot', canOpen: true })
   })
 })
 

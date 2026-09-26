@@ -1,13 +1,12 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect } from 'react'
 import { toast } from 'sonner'
 import { translate } from '@/i18n/i18n'
 import { getAutomationHostTargetKey, getAutomationTargetFromHostId } from './automation-host-client'
+import { canRerunAutomationRun } from './automation-run-view-state'
 import {
-  automationRunForEnvironment,
-  canOpenAutomationRunOpenTarget,
-  getAutomationRunOpenTabId
-} from './automation-run-open-target'
-import { canRerunAutomationRun, getAutomationRunViewState } from './automation-run-view-state'
+  resolveAutomationRunWorkspace,
+  resolveAutomationRunWorkspaceDecision
+} from './automation-run-workspace-decision'
 import { getAutomationRunWorkspaceDisplay } from './automation-run-workspace-display'
 import type { AutomationsPageListState } from './use-automations-page-list-state'
 import type { AutomationsPageLocalState } from './use-automations-page-local-state'
@@ -27,16 +26,18 @@ export function useAutomationRunPageState({
   setup: AutomationsPageSetupState
 }) {
   const {
-    worktreeMap,
     repoForRow,
     worktreeForRow,
+    folderWorkspaces,
     pendingAutomationRunNavigation,
     setPendingAutomationRunNavigation,
     selectedId,
     setSelectedId,
     unifiedTabsByWorktree,
     terminalLayoutsByTabId,
-    ptyIdsByTabId
+    ptyIdsByTabId,
+    runtimeStatusByEnvironmentId,
+    sshConnectionStates
   } = store
   const {
     isLoading,
@@ -188,61 +189,38 @@ export function useAutomationRunPageState({
     setSelectedId
   ])
 
-  const activeTerminalTabIds = useMemo(() => {
-    const ids = new Set<string>()
-    for (const tabs of Object.values(unifiedTabsByWorktree)) {
-      for (const tab of tabs) {
-        if (tab.contentType === 'terminal') {
-          ids.add(tab.entityId)
-        }
-      }
-    }
-    return ids
-  }, [unifiedTabsByWorktree])
-  const selectedAutomationRunPageWorktree = selectedAutomationRunPage?.workspaceId
-    ? selectedRow
-      ? (worktreeForRow(
-          selectedRow,
-          repoForRow(selectedRow),
-          selectedAutomationRunPage.workspaceId
-        ) ?? null)
-      : (worktreeMap.get(selectedAutomationRunPage.workspaceId) ?? null)
+  const selectedAutomationRunPageWorkspace = selectedAutomationRunPage
+    ? resolveAutomationRunWorkspace({
+        run: selectedAutomationRunPage,
+        row: selectedRow,
+        repo: selectedRow ? repoForRow(selectedRow) : undefined,
+        worktreeForRow,
+        state: { folderWorkspaces }
+      })
     : null
+  const selectedAutomationRunPageWorktree = selectedAutomationRunPageWorkspace?.worktree ?? null
   const selectedAutomationRunPageWorkspaceDisplay = selectedAutomationRunPage
     ? getAutomationRunWorkspaceDisplay({
         run: selectedAutomationRunPage,
         worktree: selectedAutomationRunPageWorktree
       })
     : null
-  const authority = selectedRow?.catalogRef?.authority
-  const environmentId = authority?.kind === 'runtime' ? authority.environmentId : undefined
-  const selectedAutomationRunPageOpenTabId = selectedAutomationRunPage
-    ? getAutomationRunOpenTabId(selectedAutomationRunPage, environmentId)
-    : null
-  const selectedAutomationRunPageViewState = selectedAutomationRunPage
-    ? getAutomationRunViewState({
-        run: selectedAutomationRunPage,
-        workspaceExists: Boolean(selectedAutomationRunPageWorktree),
-        terminalTargetExists: canOpenAutomationRunOpenTarget({
-          run: automationRunForEnvironment(
-            selectedAutomationRunPage,
-            environmentId,
-            selectedAutomationRunPageOpenTabId
-              ? terminalLayoutsByTabId[selectedAutomationRunPageOpenTabId]
-              : null
-          ),
-          terminalTabExists: selectedAutomationRunPageOpenTabId
-            ? activeTerminalTabIds.has(selectedAutomationRunPageOpenTabId)
-            : false,
-          currentLayout: selectedAutomationRunPageOpenTabId
-            ? terminalLayoutsByTabId[selectedAutomationRunPageOpenTabId]
-            : null,
-          livePtyIds: selectedAutomationRunPageOpenTabId
-            ? (ptyIdsByTabId[selectedAutomationRunPageOpenTabId] ?? [])
-            : []
-        })
-      })
-    : null
+  const selectedAutomationRunPageViewState =
+    selectedAutomationRunPage && selectedAutomationRunPageWorkspace
+      ? resolveAutomationRunWorkspaceDecision({
+          run: selectedAutomationRunPage,
+          workspaceExists: Boolean(selectedAutomationRunPageWorktree),
+          hostId: selectedAutomationRunPageWorkspace.hostId,
+          environmentId: selectedAutomationRunPageWorkspace.environmentId,
+          state: {
+            unifiedTabsByWorktree,
+            terminalLayoutsByTabId,
+            ptyIdsByTabId,
+            runtimeStatusByEnvironmentId,
+            sshConnectionStates
+          }
+        }).viewState
+      : null
   const canRerunSelectedAutomationRunPage =
     selectedAutomationRunPage !== null &&
     canRerunAutomationRun({ automation: selected, run: selectedAutomationRunPage })

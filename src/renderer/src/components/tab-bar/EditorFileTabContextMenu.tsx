@@ -199,71 +199,78 @@ export function EditorFileTabContextMenu({
             'Close Tabs To The Left'
           )}
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        {canShowMarkdownPreview ? (
+        {file.mode !== 'automation-run' ? (
           <>
+            <DropdownMenuSeparator />
+            {canShowMarkdownPreview ? (
+              <>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    onActivate()
+                    onOpenMarkdownPreview(
+                      {
+                        filePath: file.filePath,
+                        relativePath: file.relativePath,
+                        worktreeId: file.worktreeId,
+                        runtimeEnvironmentId: file.runtimeEnvironmentId,
+                        language: resolvedLanguage
+                      },
+                      { sourceFileId: file.id }
+                    )
+                  }}
+                >
+                  <Eye className="size-3.5" />
+                  {translate(
+                    'auto.components.tab.bar.EditorFileTabContextMenu.bfd5797ef4',
+                    'Open Markdown Preview'
+                  )}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+              </>
+            ) : null}
             <DropdownMenuItem
               onSelect={() => {
-                onActivate()
-                onOpenMarkdownPreview(
-                  {
-                    filePath: file.filePath,
-                    relativePath: file.relativePath,
-                    worktreeId: file.worktreeId,
-                    runtimeEnvironmentId: file.runtimeEnvironmentId,
-                    language: resolvedLanguage
-                  },
-                  { sourceFileId: file.id }
-                )
+                void window.api.ui.writeClipboardText(file.filePath)
               }}
             >
-              <Eye className="size-3.5" />
+              <Copy className="size-3.5" />
               {translate(
-                'auto.components.tab.bar.EditorFileTabContextMenu.bfd5797ef4',
-                'Open Markdown Preview'
+                'auto.components.tab.bar.EditorFileTabContextMenu.5b85754786',
+                'Copy Path'
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                void window.api.ui.writeClipboardText(file.relativePath)
+              }}
+            >
+              <Copy className="size-3.5" />
+              {translate(
+                'auto.components.tab.bar.EditorFileTabContextMenu.52ce4f4605',
+                'Copy Relative Path'
               )}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onSelect={() => {
+                if (
+                  shouldBlockEditorTabLocalOpen(
+                    useAppStore.getState().settings,
+                    file.runtimeEnvironmentId,
+                    repoConnectionId
+                  )
+                ) {
+                  showLocalPathOpenBlockedToast()
+                  return
+                }
+                window.api.shell.openPath(file.filePath)
+              }}
+            >
+              <ExternalLink className="size-3.5" />
+              {getRevealLabel()}
+            </DropdownMenuItem>
           </>
         ) : null}
-        <DropdownMenuItem
-          onSelect={() => {
-            void window.api.ui.writeClipboardText(file.filePath)
-          }}
-        >
-          <Copy className="size-3.5" />
-          {translate('auto.components.tab.bar.EditorFileTabContextMenu.5b85754786', 'Copy Path')}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() => {
-            void window.api.ui.writeClipboardText(file.relativePath)
-          }}
-        >
-          <Copy className="size-3.5" />
-          {translate(
-            'auto.components.tab.bar.EditorFileTabContextMenu.52ce4f4605',
-            'Copy Relative Path'
-          )}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          onSelect={() => {
-            if (
-              shouldBlockEditorTabLocalOpen(
-                useAppStore.getState().settings,
-                file.runtimeEnvironmentId,
-                repoConnectionId
-              )
-            ) {
-              showLocalPathOpenBlockedToast()
-              return
-            }
-            window.api.shell.openPath(file.filePath)
-          }}
-        >
-          <ExternalLink className="size-3.5" />
-          {getRevealLabel()}
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )

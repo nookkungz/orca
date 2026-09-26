@@ -100,14 +100,16 @@ export function activateAndRevealFolderWorkspace(
     opts && 'runtimeEnvironmentId' in opts
       ? (opts.runtimeEnvironmentId ?? null)
       : getRuntimeEnvironmentIdForWorktree(state, folderWorkspaceKey(folderWorkspaceId))
-  const pathStatus = state.getFreshFolderWorkspacePathStatus(
-    {
-      scope: 'folder-workspace',
-      folderWorkspaceId
-    },
-    { runtimeEnvironmentId }
-  )
-  if (folderWorkspaceActivationBlocked(pathStatus)) {
+  const pathStatus = opts?.readOnlySurface
+    ? null
+    : state.getFreshFolderWorkspacePathStatus(
+        {
+          scope: 'folder-workspace',
+          folderWorkspaceId
+        },
+        { runtimeEnvironmentId }
+      )
+  if (!opts?.readOnlySurface && folderWorkspaceActivationBlocked(pathStatus)) {
     const title =
       getFolderWorkspacePathStatusTitle(pathStatus) ??
       translate(
@@ -124,7 +126,9 @@ export function activateAndRevealFolderWorkspace(
     state.setActiveView('terminal')
   }
 
-  state.setActiveFolderWorkspace(folderWorkspaceId, opts?.executionHostId)
+  state.setActiveFolderWorkspace(folderWorkspaceId, opts?.executionHostId, {
+    readOnlySurface: opts?.readOnlySurface
+  })
 
   const workspaceKey = folderWorkspaceKey(folderWorkspaceId)
   const providesInitialSurface = activationProvidesInitialSurface(opts)
@@ -134,13 +138,14 @@ export function activateAndRevealFolderWorkspace(
   }
   // Why: same ordering as the worktree path — gate first, then resume only when not deferring.
   const shouldGateAgentActivation =
+    !opts?.readOnlySurface &&
     !opts?.startup &&
     (workspaceHasSleepingAgentSessions(state, workspaceKey) ||
       (canInspectAgentActivationInventory() &&
         shouldAutoCreateInitialTerminal(
           state.reconcileWorktreeTabModel(workspaceKey).renderableTabCount
         )))
-  if (!shouldGateAgentActivation) {
+  if (!opts?.readOnlySurface && !shouldGateAgentActivation) {
     resumeSleepingAgentSessionsForWorktree(workspaceKey)
   }
   if (shouldGateAgentActivation) {
@@ -150,9 +155,10 @@ export function activateAndRevealFolderWorkspace(
       opts?.executionHostId
     )
   }
-  const primaryTabId = shouldGateAgentActivation
-    ? null
-    : ensureFolderWorkspaceInitialTerminal(folderWorkspace, opts?.startup, providesInitialSurface)
+  const primaryTabId =
+    opts?.readOnlySurface || shouldGateAgentActivation
+      ? null
+      : ensureFolderWorkspaceInitialTerminal(folderWorkspace, opts?.startup, providesInitialSurface)
 
   if (opts?.revealInSidebar !== false) {
     state.revealWorktreeInSidebar(
@@ -204,7 +210,9 @@ export function activateAndRevealWorktree(
   }
 
   // 3. Core activation: setActiveWorktree also restores per-worktree state, clears unread, bumps dead PTY generations, refreshes GitHub
-  state.setActiveWorktree(worktreeId, opts?.executionHostId)
+  state.setActiveWorktree(worktreeId, opts?.executionHostId, {
+    readOnlySurface: opts?.readOnlySurface
+  })
   const postActivationState = useAppStore.getState()
   const ownerRuntimeEnvironmentId = getRuntimeEnvironmentIdForWorktree(postActivationState, wt.id)
   if (opts?.notifyHostRuntime !== false && isWebRuntimeSessionActive(ownerRuntimeEnvironmentId)) {
@@ -230,13 +238,14 @@ export function activateAndRevealWorktree(
   // agent inventory hydrates asynchronously too, so an empty tab model can otherwise authorize a
   // fallback terminal beside a chat that is about to appear.
   const shouldGateAgentActivation =
+    !opts?.readOnlySurface &&
     !hasActivationWork &&
     (workspaceHasSleepingAgentSessions(postActivationState, worktreeId) ||
       (canInspectAgentActivationInventory() &&
         shouldAutoCreateInitialTerminal(
           postActivationState.reconcileWorktreeTabModel(worktreeId).renderableTabCount
         )))
-  if (!shouldGateAgentActivation) {
+  if (!opts?.readOnlySurface && !shouldGateAgentActivation) {
     // Why: sleeping destroys the local PTY but preserves the provider session id, so waking should
     // restore those CLI sessions. Ordering is load-bearing: resuming synchronously creates the
     // session's tab first, so the seeding below doesn't add a bare shell next to it.
@@ -251,24 +260,27 @@ export function activateAndRevealWorktree(
   }
 
   // 4. Ensure a focusable surface exists for externally-created worktrees
-  const primaryTabId = shouldGateAgentActivation
-    ? null
-    : providesInitialSurface && !hasActivationWork
+  const primaryTabId =
+    opts?.readOnlySurface || shouldGateAgentActivation
       ? null
-      : ensureWorktreeHasInitialTerminal(
-          useAppStore.getState(),
-          worktreeId,
-          opts?.startup,
-          opts?.setup,
-          opts?.issueCommand,
-          opts?.defaultTabs,
-          {
-            ...(opts?.backendStartupTerminalSpawned ? { backendStartupTerminalSpawned: true } : {}),
-            ...(opts?.createNewTerminalForStartup ? { createNewTerminalForStartup: true } : {}),
-            ...(providesInitialSurface ? { callerProvidesSurface: true } : {}),
-            reseedEmptiedWorkspace: !providesInitialSurface
-          }
-        )
+      : providesInitialSurface && !hasActivationWork
+        ? null
+        : ensureWorktreeHasInitialTerminal(
+            useAppStore.getState(),
+            worktreeId,
+            opts?.startup,
+            opts?.setup,
+            opts?.issueCommand,
+            opts?.defaultTabs,
+            {
+              ...(opts?.backendStartupTerminalSpawned
+                ? { backendStartupTerminalSpawned: true }
+                : {}),
+              ...(opts?.createNewTerminalForStartup ? { createNewTerminalForStartup: true } : {}),
+              ...(providesInitialSurface ? { callerProvidesSurface: true } : {}),
+              reseedEmptiedWorkspace: !providesInitialSurface
+            }
+          )
   if (primaryTabId && opts?.initialCwd) {
     useAppStore.getState().queueTabInitialCwd(primaryTabId, opts.initialCwd)
   }
@@ -327,6 +339,7 @@ export function activateAndRevealWorkspace(
   opts?: WorktreeActivationSurfaceSelection & {
     executionHostId?: ExecutionHostId
     revealInSidebar?: boolean
+    notifyHostRuntime?: boolean
     /** Worktree-only: folder workspaces are never filter-hidden. */
     clearSidebarFilters?: boolean
   }

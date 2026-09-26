@@ -1,94 +1,118 @@
-import {
-  getWorktreeExecutionHostId,
-  toRuntimeExecutionHostId
-} from '../../../../shared/execution-host'
-import { revealAutomationRunTab } from '@/lib/automation-run-tab-visibility'
 import type { AutomationRun } from '../../../../shared/automations-types'
 import { toast } from 'sonner'
-import { translate } from '@/i18n/i18n'
-import { activateAndRevealWorktree } from '@/lib/worktree-activation'
+import { activateAndRevealWorkspace } from '@/lib/worktree-activation'
+import { automationRunResultTabId } from '@/lib/automation-run-result-tab-id'
+import { revealAutomationRunTab } from '@/lib/automation-run-tab-visibility'
 import { useAppStore } from '@/store'
+import type { OpenFile } from '@/store/slices/editor'
+import { buildAutomationRunOpenLayout } from './automation-run-open-target'
 import {
-  automationRunForEnvironment,
-  buildAutomationRunOpenLayout,
-  getAutomationRunOpenTabId,
-  resolveAutomationRunOpenTarget
-} from './automation-run-open-target'
-import { getAutomationRunViewState } from './automation-run-view-state'
+  resolveAutomationRunWorkspace,
+  resolveAutomationRunWorkspaceDecision
+} from './automation-run-workspace-decision'
 import type { AutomationsPageActionContext } from './automations-page-action-context'
 
-/** Opens the original run terminal when its host-qualified workspace is alive. */
 export function createAutomationRunWorkspaceAction({ store, list }: AutomationsPageActionContext) {
   const { repoForRow, worktreeForRow } = store
   const { selectedRow } = list
   return function openRunWorkspace(run: AutomationRun): void {
-    const runWorktree =
-      run.workspaceId && selectedRow
-        ? (worktreeForRow(selectedRow, repoForRow(selectedRow), run.workspaceId) ?? null)
-        : null
-    const appStore = useAppStore.getState()
-    const authority = selectedRow?.catalogRef?.authority
-    const environmentId = authority?.kind === 'runtime' ? authority.environmentId : undefined
-    const openTabId = getAutomationRunOpenTabId(run, environmentId)
-    const terminalTabExists = openTabId ? Boolean(appStore.getTab(openTabId)) : false
-    const currentLayout = openTabId ? appStore.terminalLayoutsByTabId[openTabId] : null
-    const livePtyIds = openTabId ? (appStore.ptyIdsByTabId[openTabId] ?? []) : []
-    const terminalTarget = resolveAutomationRunOpenTarget({
-      run: automationRunForEnvironment(run, environmentId, currentLayout),
-      terminalTabExists,
-      currentLayout,
-      livePtyIds
-    })
-    const runViewState = getAutomationRunViewState({
+    const state = useAppStore.getState()
+    const repo = selectedRow ? repoForRow(selectedRow) : undefined
+    const { worktree, hostId, environmentId } = resolveAutomationRunWorkspace({
       run,
-      workspaceExists: Boolean(runWorktree),
-      terminalTargetExists: terminalTarget !== null
+      row: selectedRow,
+      repo,
+      worktreeForRow,
+      state
     })
-    if (!run.workspaceId || !runWorktree || !runViewState.canOpen) {
-      toast.error(runViewState.statusLabel)
+    let decision = resolveAutomationRunWorkspaceDecision({
+      run,
+      workspaceExists: Boolean(worktree),
+      hostId,
+      environmentId,
+      state
+    })
+    if (!run.workspaceId || !decision.viewState.canOpen) {
+      toast.error(decision.viewState.statusLabel)
       return
     }
-    if (!terminalTarget || !currentLayout) {
-      toast.error(runViewState.statusLabel)
-      return
-    }
-    const executionHostId = environmentId
-      ? toRuntimeExecutionHostId(environmentId)
-      : getWorktreeExecutionHostId(runWorktree, selectedRow ? repoForRow(selectedRow) : undefined)
-    const tab = appStore.unifiedTabsByWorktree[run.workspaceId]?.find(
-      (entry) =>
-        entry.entityId === terminalTarget.tabId &&
-        entry.contentType === 'terminal' &&
-        (entry.executionHostId ?? 'local') === executionHostId
-    )
-    if (!tab) {
-      toast.error('Run terminal is unavailable.')
-      return
-    }
-    revealAutomationRunTab(tab)
-    appStore.setTabLayout(
-      terminalTarget.tabId,
-      buildAutomationRunOpenLayout({ target: terminalTarget, currentLayout })
-    )
     if (
-      activateAndRevealWorktree(run.workspaceId, {
-        executionHostId,
+      !activateAndRevealWorkspace(run.workspaceId, {
+        executionHostId: hostId,
         providesInitialSurface: true,
+        readOnlySurface: true,
         notifyHostRuntime: false
       })
     ) {
-      appStore.focusGroup(run.workspaceId, tab.groupId)
-      appStore.activateTab(tab.id)
-      appStore.setActiveTab(terminalTarget.tabId)
-      appStore.setActiveTabType('terminal')
+      toast.error('Workspace is not available.')
       return
     }
-    toast.error(
-      translate(
-        'auto.components.automations.AutomationsPage.e1bf9b1512',
-        'Workspace is not available.'
-      )
+
+    decision = resolveAutomationRunWorkspaceDecision({
+      run,
+      workspaceExists: Boolean(worktree),
+      hostId,
+      environmentId,
+      state: useAppStore.getState()
+    })
+
+    if (decision.viewState.availability === 'terminal') {
+      const { tab, terminalTarget, currentLayout } = decision
+      if (!tab || !terminalTarget || !currentLayout) {
+        toast.error('Run terminal is unavailable.')
+        return
+      }
+      revealAutomationRunTab(tab)
+      useAppStore
+        .getState()
+        .setTabLayout(
+          terminalTarget.tabId,
+          buildAutomationRunOpenLayout({ target: terminalTarget, currentLayout })
+        )
+      const next = useAppStore.getState()
+      next.focusGroup(run.workspaceId, tab.groupId)
+      next.activateTab(tab.id, { worktreeId: run.workspaceId })
+      next.setActiveTab(terminalTarget.tabId)
+      next.setActiveTabType('terminal')
+      return
+    }
+
+    const id = automationRunResultTabId(hostId, run)
+    const file: OpenFile = {
+      id,
+      filePath: id,
+      relativePath: run.title,
+      worktreeId: run.workspaceId,
+      language: 'markdown',
+      isDirty: false,
+      readOnly: true,
+      mode: 'automation-run',
+      automationRun: run,
+      automationRunHostId: hostId,
+      runtimeEnvironmentId: environmentId ?? null
+    }
+    useAppStore.setState((current) => ({
+      openFiles: current.openFiles.some((entry) => entry.id === id)
+        ? current.openFiles.map((entry) => (entry.id === id ? file : entry))
+        : [...current.openFiles, file]
+    }))
+    const next = useAppStore.getState()
+    const existing = (next.unifiedTabsByWorktree[run.workspaceId] ?? []).find(
+      (tab) => tab.contentType === 'editor' && tab.entityId === id && tab.executionHostId === hostId
     )
+    const tab =
+      existing ??
+      next.createUnifiedTab(run.workspaceId, 'editor', {
+        entityId: id,
+        label: run.title,
+        executionHostId: hostId,
+        recordInteraction: false
+      })
+    const latest = useAppStore.getState()
+    latest.focusGroup(run.workspaceId, tab.groupId)
+    latest.activateTab(tab.id, { worktreeId: run.workspaceId })
+    latest.setActiveFile(id)
+    latest.setActiveTabType('editor')
   }
 }
 

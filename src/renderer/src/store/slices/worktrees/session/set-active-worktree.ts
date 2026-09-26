@@ -80,7 +80,7 @@ export function createSetActiveWorktree(
       }
 
       const worktree = findKnownWorktreeById(s, worktreeId, executionHostId)
-      shouldClearUnread = Boolean(worktree?.isUnread)
+      shouldClearUnread = !options?.readOnlySurface && Boolean(worktree?.isUnread)
       const {
         restoredRightSidebarExplorerView,
         activeFileId,
@@ -110,7 +110,7 @@ export function createSetActiveWorktree(
       const shouldTagTabs = worktreeId != null && tabs.length > 0 && isFirstActivation
       // Why: bump generation in the same set() as activation so a dead-transport pane can't go visible-but-dead before remount.
       shouldPrepareTerminalTabs = Boolean(
-        worktreeId && tabs.length > 0 && shouldTagTabs && !allDead
+        !options?.readOnlySurface && worktreeId && tabs.length > 0 && shouldTagTabs && !allDead
       )
       shouldTagTerminalTabs = shouldTagTabs
       const nextEverActivated = isFirstActivation
@@ -137,7 +137,7 @@ export function createSetActiveWorktree(
             ? (worktree?.repoId ?? s.activeRepoId)
             : s.activeRepoId
       const tabsByWorktreeUpdate =
-        allDead && worktreeId != null
+        !options?.readOnlySurface && allDead && worktreeId != null
           ? {
               tabsByWorktree: {
                 ...s.tabsByWorktree,
@@ -210,7 +210,9 @@ export function createSetActiveWorktree(
     // Why: any activation is an explicit wake (null is the sleep flow clearing selection).
     // Cleared after the set() above so a pane still waiting on the marker connects once,
     // in the remounted generation, instead of connecting and then being remounted.
-    clearWorktreeSleepIntent(worktreeId)
+    if (!options?.readOnlySurface) {
+      clearWorktreeSleepIntent(worktreeId)
+    }
 
     if (worktreeId && shouldPrepareTerminalTabs) {
       const prepareTerminalTabs = (): void => {
@@ -262,7 +264,7 @@ export function createSetActiveWorktree(
     }
 
     // Why: activation is explicit enough to revalidate PR state now; the coordinator still coalesces and rate-guards.
-    if (worktreeId) {
+    if (worktreeId && !options?.readOnlySurface) {
       get().refreshGitHubForWorktreeIfStale(worktreeId)
     }
 
