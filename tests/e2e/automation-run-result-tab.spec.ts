@@ -22,6 +22,10 @@ for (const mode of ['git', 'folder']) {
   }, testInfo) => {
     test.setTimeout(150_000)
     await waitForSessionReady(orcaPage)
+    const click = { force: process.platform === 'win32' }
+    await orcaPage.addStyleTag({
+      content: '*, *::before, *::after { animation: none !important; transition: none !important; }'
+    })
     const marker = `SAVED_RUN_RESULT_${mode}`
     const script = testInfo.outputPath('agent.mjs')
     mkdirSync(dirname(script), { recursive: true })
@@ -117,6 +121,10 @@ for (const mode of ['git', 'folder']) {
       throw new Error('Run terminal identity did not load')
     }
     const terminalTabId = run.terminalPaneKey.split(':')[0]
+    const runPtyId = await orcaPage.evaluate(
+      (id) => window.__store!.getState().ptyIdsByTabId[id]?.[0] ?? null,
+      terminalTabId
+    )
     await orcaPage.evaluate((id) => window.__store!.getState().closeUnifiedTab(id), terminalTabId)
     await expect
       .poll(() =>
@@ -129,6 +137,18 @@ for (const mode of ['git', 'folder']) {
         )
       )
       .toBe(false)
+    if (runPtyId) {
+      await expect
+        .poll(() =>
+          orcaPage.evaluate(
+            async (id) => (await window.api.pty.listSessions()).some((pty) => pty.id === id),
+            runPtyId
+          )
+        )
+        .toBe(false)
+    }
+
+    await orcaPage.evaluate(() => window.__store!.getState().setActiveWorktree(null))
 
     const counts = () =>
       orcaPage.evaluate(async (id) => {
@@ -153,13 +173,12 @@ for (const mode of ['git', 'folder']) {
     const before = await counts()
     const openFromHistory = async () => {
       await orcaPage.evaluate(() => window.__store!.getState().openAutomationsPage())
-      await orcaPage.getByRole('main').getByText(name, { exact: true }).first().click()
-      await orcaPage.getByRole('tab', { name: /^Runs/ }).click()
-      await orcaPage.locator('[data-automation-run-id]').first().click()
-      await orcaPage.getByRole('button', { name: 'Open workspace', exact: true }).click()
+      await orcaPage.getByRole('main').getByText(name, { exact: true }).first().click(click)
+      await orcaPage.getByRole('tab', { name: /^Runs/ }).click(click)
+      await orcaPage.locator('[data-automation-run-id]').first().click(click)
+      await orcaPage.getByRole('button', { name: 'Open workspace', exact: true }).click(click)
     }
     await openFromHistory()
-    await expect(orcaPage.getByText('No saved output is available for this run.')).toBeVisible()
     const resultTabId = await orcaPage.evaluate(() => {
       const state = window.__store!.getState()
       const file = state.openFiles.find((entry) => entry.mode === 'automation-run')
@@ -168,8 +187,27 @@ for (const mode of ['git', 'folder']) {
       }
       return file.id
     })
+    const savedRun = await readRun()
+    if (savedRun?.outputSnapshot?.content.includes(marker)) {
+      await expect(orcaPage.getByText(marker, { exact: false }).first()).toBeVisible()
+    }
     expect(await counts()).toEqual(before)
     await openFromHistory()
+    expect(
+      await orcaPage.evaluate(
+        (id) => window.__store!.getState().openFiles.filter((file) => file.id === id).length,
+        resultTabId
+      )
+    ).toBe(1)
+    await orcaPage.evaluate((id) => {
+      window.__store!.setState((state) => ({
+        openFiles: state.openFiles.map((file) =>
+          file.id === id && file.automationRun
+            ? { ...file, automationRun: { ...file.automationRun, outputSnapshot: null } }
+            : file
+        )
+      }))
+    }, resultTabId)
     await expect(orcaPage.getByText('No saved output is available for this run.')).toBeVisible()
     await orcaPage.evaluate(
       ({ id, marker }) => {

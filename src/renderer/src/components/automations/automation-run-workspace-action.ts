@@ -36,25 +36,27 @@ export function createAutomationRunWorkspaceAction({ store, list }: AutomationsP
       toast.error(decision.viewState.statusLabel)
       return
     }
-    if (
-      !activateAndRevealWorkspace(run.workspaceId, {
+    const activateWorkspace = () =>
+      activateAndRevealWorkspace(run.workspaceId!, {
         executionHostId: hostId,
         providesInitialSurface: true,
         readOnlySurface: true,
         notifyHostRuntime: false
       })
-    ) {
-      toast.error('Workspace is not available.')
-      return
+    const terminalWasAvailable = decision.viewState.availability === 'terminal'
+    if (terminalWasAvailable) {
+      if (!activateWorkspace()) {
+        toast.error('Workspace is not available.')
+        return
+      }
+      decision = resolveAutomationRunWorkspaceDecision({
+        run,
+        workspaceExists: Boolean(worktree),
+        hostId,
+        environmentId,
+        state: useAppStore.getState()
+      })
     }
-
-    decision = resolveAutomationRunWorkspaceDecision({
-      run,
-      workspaceExists: Boolean(worktree),
-      hostId,
-      environmentId,
-      state: useAppStore.getState()
-    })
 
     if (decision.viewState.availability === 'terminal') {
       const { tab, terminalTarget, currentLayout } = decision
@@ -108,6 +110,16 @@ export function createAutomationRunWorkspaceAction({ store, list }: AutomationsP
         executionHostId: hostId,
         recordInteraction: false
       })
+    // Select the read-only surface before activating its workspace so saved terminal tabs stay unmounted.
+    next.activateTab(tab.id, { worktreeId: run.workspaceId })
+    if (!terminalWasAvailable && !activateWorkspace()) {
+      useAppStore.getState().closeUnifiedTab(tab.id)
+      useAppStore.setState((current) => ({
+        openFiles: current.openFiles.filter((entry) => entry.id !== id)
+      }))
+      toast.error('Workspace is not available.')
+      return
+    }
     const latest = useAppStore.getState()
     latest.focusGroup(run.workspaceId, tab.groupId)
     latest.activateTab(tab.id, { worktreeId: run.workspaceId })

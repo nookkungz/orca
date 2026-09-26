@@ -46,7 +46,7 @@ const initialState = useAppStore.getInitialState()
 const originalRequestIdle = globalThis.requestIdleCallback
 const originalCancelIdle = globalThis.cancelIdleCallback
 
-function terminalTab(id: string, ptyId: string): TerminalTab {
+function terminalTab(id: string, ptyId: string | null): TerminalTab {
   return {
     id,
     ptyId,
@@ -220,6 +220,49 @@ describe('cold-activation deferral stranding', () => {
     expect(result.current.activationDeferredMountTabIdsByWorktreeRef.current.has(WORKTREE_ID)).toBe(
       false
     )
+    expect(shouldMountBackgroundWorktreeTab(restrictions.get(WORKTREE_ID) ?? null, TAB_1)).toBe(
+      true
+    )
+    expect(shouldMountBackgroundWorktreeTab(restrictions.get(WORKTREE_ID) ?? null, TAB_2)).toBe(
+      true
+    )
+  })
+
+  it('keeps detached terminals unmounted while a saved run result is selected', () => {
+    vi.useFakeTimers()
+    useAppStore.setState({
+      activeTabType: 'editor',
+      activeFileId: 'saved-run',
+      openFiles: [
+        {
+          id: 'saved-run',
+          filePath: 'saved-run',
+          relativePath: 'Saved run',
+          worktreeId: WORKTREE_ID,
+          language: 'markdown',
+          isDirty: false,
+          mode: 'automation-run'
+        }
+      ],
+      tabsByWorktree: {
+        [WORKTREE_ID]: [terminalTab(TAB_1, null), terminalTab(TAB_2, null)]
+      }
+    })
+    const { result } = renderHook(() =>
+      useStrandingHarness({ worktreeId: WORKTREE_ID, gateOpen: true })
+    )
+    const restrictions = result.current.backgroundMountTabIdsByWorktreeRef.current
+    const deferred = result.current.activationDeferredMountTabIdsByWorktreeRef.current
+    expect(deferred.get(WORKTREE_ID)?.size).toBe(2)
+    drainIdleAdmissions(3)
+    expect(shouldMountBackgroundWorktreeTab(restrictions.get(WORKTREE_ID) ?? null, TAB_1)).toBe(
+      false
+    )
+    expect(shouldMountBackgroundWorktreeTab(restrictions.get(WORKTREE_ID) ?? null, TAB_2)).toBe(
+      false
+    )
+
+    act(() => useAppStore.setState({ activeTabType: 'terminal', activeFileId: null }))
     expect(shouldMountBackgroundWorktreeTab(restrictions.get(WORKTREE_ID) ?? null, TAB_1)).toBe(
       true
     )

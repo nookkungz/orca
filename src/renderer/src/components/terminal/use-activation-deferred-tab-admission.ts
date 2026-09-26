@@ -30,6 +30,16 @@ export function useActivationDeferredTabAdmission(
     renderedActiveWorktreeId,
     setBackgroundMountRevision
   } = controller
+  const showingRunResult = useAppStore(
+    (state) =>
+      state.activeTabType === 'editor' &&
+      state.openFiles.some(
+        (file) =>
+          file.id === state.activeFileId &&
+          file.worktreeId === renderedActiveWorktreeId &&
+          file.mode === 'automation-run'
+      )
+  )
   // Why the high-water mark rather than the live count: draining must not walk an
   // over-cap worktree down into eligibility and warm up tabs the pre-deferral
   // behaviour left unmounted — but a verdict latched on one reading would never
@@ -40,7 +50,7 @@ export function useActivationDeferredTabAdmission(
 
   useEffect(() => {
     const worktreeId = renderedActiveWorktreeId
-    if (!worktreeId) {
+    if (!worktreeId || showingRunResult) {
       return
     }
     const deferredTabCount =
@@ -84,5 +94,10 @@ export function useActivationDeferredTabAdmission(
     // neither other dep changes, and without this revision the tabs stay
     // unmounted until the user switches workspaces and back.
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- controller refs and setters preserve their original stable identities.
-  }, [activationDeferralPlanRevision, backgroundMountRevision, renderedActiveWorktreeId])
+  }, [
+    activationDeferralPlanRevision,
+    backgroundMountRevision,
+    renderedActiveWorktreeId,
+    showingRunResult
+  ])
 }
