@@ -33,7 +33,9 @@ export function shouldSkipCodexHomeEnvForWindowsShell(
 
 export function isCodexStatusHooksEnabled(settings: GlobalSettings | undefined): boolean {
   return (
-    isAgentStatusHooksEnabled(settings) && isTuiAgentEnabled('codex', settings?.disabledTuiAgents)
+    isAgentStatusHooksEnabled(settings) &&
+    (isTuiAgentEnabled('codex', settings?.disabledTuiAgents) ||
+      isTuiAgentEnabled('codex-team', settings?.disabledTuiAgents))
   )
 }
 

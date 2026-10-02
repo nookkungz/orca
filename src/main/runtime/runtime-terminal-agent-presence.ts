@@ -28,6 +28,7 @@ type RuntimeTerminalAgentPresenceDependencies = {
   getTrackedPty(ptyId: string): RuntimePtyWorktreeRecord | null
   getTabTitle(tabId: string): string | null
   getForegroundProcess(ptyId: string): Promise<string | null> | null
+  confirmForegroundProcess?(ptyId: string): Promise<string | null> | null
 }
 
 export type RuntimeTerminalAgentPresenceOptions = {
@@ -175,7 +176,11 @@ export class RuntimeTerminalAgentPresence {
     if (options.foregroundProcess !== undefined) {
       return options.foregroundProcess
     }
-    return await this.deps.getForegroundProcess(ptyId)
+    const foreground = await this.deps.getForegroundProcess(ptyId)
+    // A tool subprocess can occupy the cached foreground slot while Codex still owns the TUI.
+    return recognizeAgentProcess(foreground)
+      ? foreground
+      : ((await this.deps.confirmForegroundProcess?.(ptyId)) ?? foreground)
   }
 
   private async isRecognizedForegroundAgentProcess(

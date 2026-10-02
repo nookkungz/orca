@@ -32,7 +32,11 @@ export class OrcaRuntimeWithPublishPtyBackedMobileSessionTerminal extends OrcaRu
       selectIfNoActiveTab?: boolean
       startupCwd?: string
       viewMode?: 'terminal' | 'chat'
-      split?: { splitFromLeafId: string; direction: 'horizontal' | 'vertical' }
+      split?: {
+        splitFromLeafId: string
+        direction: 'horizontal' | 'vertical'
+        placement?: 'before' | 'after'
+      }
       notify?: boolean
     }
   ): void {

@@ -1,3 +1,4 @@
+import { runtimeWorktreeIdsEqual } from '../../../../runtime-worktree-path-identity'
 import type { TuiAgent } from '../../../../../../shared/tui-agent'
 import { describeTerminalWaitBlockedReason } from '../../../../../../shared/terminal-wait-blocked-reason-legacy-alias'
 import { buildDispatchPreamble } from '../../../../orchestration/preamble'
@@ -158,7 +159,7 @@ export const ORCHESTRATION_FEDERATION_ATTACH_METHODS = [
           )
           if (terminalHandle) {
             const terminal = await runtime.showTerminal(terminalHandle)
-            if (terminal.worktreeId !== worktree.id) {
+            if (!runtimeWorktreeIdsEqual(terminal.worktreeId, worktree.id)) {
               throw new OrchestrationError(
                 'terminal_worktree_mismatch',
                 `Terminal ${terminalHandle} does not belong to worktree ${worktree.id}.`

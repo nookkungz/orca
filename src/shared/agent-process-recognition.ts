@@ -295,8 +295,14 @@ export function recognizeAgentProcessFromCommandLine(
   const firstNormalized = normalizeProcessName(tokens[0])
   let direct = recognizedAgentForProcess(firstNormalized)
   // Why: the generic Orca CLI is not an agent; only this subcommand launches its TUI mode.
-  if (direct?.agent === 'claude-agent-teams' && tokens[1]?.toLowerCase() !== 'claude-teams') {
-    direct = null
+  if (direct?.agent === 'claude-agent-teams') {
+    const subcommand = tokens[1]?.toLowerCase()
+    direct =
+      subcommand === 'codex-team'
+        ? { agent: 'codex-team', processName: direct.processName }
+        : subcommand === 'claude-teams'
+          ? direct
+          : null
   }
   const directRecognition = keep ? direct : filterHeadlessOneShotAgentCommand(direct, tokens)
   if (directRecognition) {
@@ -306,14 +312,17 @@ export function recognizeAgentProcessFromCommandLine(
   if (!entrypoint) {
     return null
   }
-  const viaEntrypoint = isPythonProcessName(firstNormalized)
+  let viaEntrypoint = isPythonProcessName(firstNormalized)
     ? recognizePythonEntrypoint(tokens, entrypoint)
     : (recognizeAgentProcess(entrypoint) ?? recognizeNodeScriptEntrypoint(entrypoint))
-  if (
-    viaEntrypoint?.agent === 'claude-agent-teams' &&
-    tokens[tokens.indexOf(entrypoint, 1) + 1]?.toLowerCase() !== 'claude-teams'
-  ) {
-    return null
+  if (viaEntrypoint?.agent === 'claude-agent-teams') {
+    const subcommand = tokens[tokens.indexOf(entrypoint, 1) + 1]?.toLowerCase()
+    viaEntrypoint =
+      subcommand === 'codex-team'
+        ? { agent: 'codex-team', processName: viaEntrypoint.processName }
+        : subcommand === 'claude-teams'
+          ? viaEntrypoint
+          : null
   }
   return keep ? viaEntrypoint : filterHeadlessOneShotAgentCommand(viaEntrypoint, tokens)
 }

@@ -43,6 +43,7 @@ export function registerTerminalPresentationIpcBridge(unsubs: (() => void)[]): v
         leafId,
         splitFromLeafId,
         splitDirection,
+        splitPlacement,
         splitTelemetrySource
       }) => {
         try {
@@ -165,7 +166,8 @@ export function registerTerminalPresentationIpcBridge(unsubs: (() => void)[]): v
                   ptyId,
                   splitDirection ?? 'horizontal',
                   title,
-                  shouldActivate
+                  shouldActivate,
+                  splitPlacement
                 )
               )
               window.dispatchEvent(
@@ -176,6 +178,7 @@ export function registerTerminalPresentationIpcBridge(unsubs: (() => void)[]): v
                     paneRuntimeId: -1,
                     direction: splitDirection ?? 'horizontal',
                     sourceLeafId: splitFromLeafId,
+                    placement: splitPlacement,
                     sourcePtyId,
                     telemetrySource: splitTelemetrySource,
                     newLeafId: leafId,

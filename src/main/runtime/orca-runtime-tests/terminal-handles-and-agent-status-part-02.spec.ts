@@ -8,6 +8,106 @@ import {
 } from '../orca-runtime-test-fixtures.spec'
 
 describe('OrcaRuntimeService', () => {
+  it('confirms an idle Codex from its current screen when WSL hides the foreground agent', async () => {
+    const runtime = new OrcaRuntimeService(store)
+    runtime.setPtyController({
+      spawn: async () => ({ id: 'pty-codex' }),
+      write: () => true,
+      kill: () => true,
+      getForegroundProcess: async () => 'wsl.exe',
+      hasPty: () => true
+    })
+    await runtime.createTerminal(`path:${TEST_WORKTREE_PATH}`, {
+      command: 'codex',
+      launchAgent: 'codex',
+      title: 'Report task outcome'
+    })
+    syncSinglePty(runtime, 'pty-codex', {
+      tabTitle: 'Report task outcome',
+      paneTitle: 'Report task outcome'
+    })
+    const [{ handle }] = (await runtime.listTerminals()).terminals
+    const snapshot = await runtime.readTerminal(handle, { screen: true })
+    const tail = ['› Ask Codex to do any', '  GPT-6-Astra high · …', '  ? for sho  ⚠ 2 · f2']
+    const read = vi
+      .spyOn(runtime, 'readTerminal')
+      .mockResolvedValue({ ...snapshot, source: 'screen', tail })
+    await expect(
+      runtime.isTerminalRunningAgent(handle, { retryForegroundWrappers: false })
+    ).resolves.toBe(true)
+    read.mockResolvedValue({
+      ...snapshot,
+      source: 'screen',
+      tail: [
+        'OpenAI Codex',
+        'model: gpt-6-astra',
+        'directory: /workspace',
+        ...tail,
+        'root@NookNB:/workspace# '
+      ]
+    })
+    await expect(
+      runtime.isTerminalRunningAgent(handle, { retryForegroundWrappers: false })
+    ).resolves.toBe(false)
+  })
+
+  it('waits for the live Codex composer when cursor output obscures the retained text', async () => {
+    const runtime = new OrcaRuntimeService(store)
+    runtime.setPtyController({
+      spawn: async () => ({ id: 'pty-codex' }),
+      write: () => true,
+      kill: () => true,
+      getForegroundProcess: async () => 'codex',
+      hasPty: () => true
+    })
+    runtime.attachWindow(1)
+    runtime.syncWindowGraph(1, { tabs: [], leaves: [] })
+    const { handle } = await runtime.createTerminal(`path:${TEST_WORKTREE_PATH}`, {
+      command: 'codex',
+      launchAgent: 'codex'
+    })
+    runtime.onPtyData('pty-codex', 'Cursor-addressed startup output', Date.now())
+    const waiting = runtime.waitForTerminal(handle, { condition: 'tui-idle', timeoutMs: 3000 })
+    setTimeout(
+      () =>
+        runtime.onPtyData(
+          'pty-codex',
+          '\x1b[2J\x1b[H› Ask Codex to do anything\x1b[2;1HGPT-6-Astra high · /workspace\x1b[3;1H? for shortcuts',
+          Date.now()
+        ),
+      100
+    )
+    await expect(waiting).resolves.toMatchObject({ satisfied: true })
+  })
+
+  it('reads host liveness evidence for a renderer-mounted terminal', async () => {
+    const runtime = new OrcaRuntimeService(store)
+    syncSinglePty(runtime, 'pty-1', {})
+    const [terminal] = (await runtime.listTerminals()).terminals
+    runtime.markPtyLivenessLive('pty-1')
+    expect(runtime.getTerminalLivenessVerdict(terminal.handle)?.status).toBe('live')
+    runtime.markPtyLivenessUnverifiable('pty-1', 'host disconnected')
+    expect(runtime.getTerminalLivenessVerdict(terminal.handle)).toEqual({
+      status: 'unverifiable',
+      reason: 'host disconnected'
+    })
+  })
+
+  it('confirms Codex presence when its cached foreground is a tool subprocess', async () => {
+    const runtime = new OrcaRuntimeService(store)
+    const confirm = vi.fn(async () => 'codex')
+    runtime.setPtyController({
+      write: () => true,
+      kill: () => true,
+      getForegroundProcess: async () => 'node',
+      confirmForegroundProcess: confirm
+    })
+    syncSinglePty(runtime, 'pty-1', { paneTitle: 'Read orchestration skill' })
+    const [terminal] = (await runtime.listTerminals()).terminals
+    await expect(runtime.isTerminalRunningAgent(terminal.handle)).resolves.toBe(true)
+    expect(confirm).toHaveBeenCalledWith('pty-1')
+  })
+
   it('lets Claude agents management titles clear stale runtime-created title status', async () => {
     const runtime = new OrcaRuntimeService(store)
     runtime.setPtyController({

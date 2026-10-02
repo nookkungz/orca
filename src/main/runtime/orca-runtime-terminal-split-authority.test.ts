@@ -73,6 +73,8 @@ function remoteSnapshot(): RuntimeMobileSessionTabsSnapshot {
 function createHarness(
   includeSource = true,
   options: {
+    resolvedWorktreeId?: string
+    ptyWorktreeId?: string
     connectionId?: string | null
     deferReveal?: boolean
     deferSpawn?: boolean
@@ -132,7 +134,7 @@ function createHarness(
   const runtime = new OrcaRuntimeService(store as never)
   Object.assign(runtime, {
     resolveTerminalWorkspaceLaunchScope: vi.fn(async () => ({
-      id: WORKTREE_ID,
+      id: options.resolvedWorktreeId ?? WORKTREE_ID,
       path: '/workspace',
       connectionId,
       repo,
@@ -176,7 +178,7 @@ function createHarness(
     mobileSessionTabs: (options.includePairedSnapshot ?? includeSource) ? [remoteSnapshot()] : []
   })
   if (!options.graphOnlySource) {
-    runtime.registerPty(SOURCE_PTY_ID, WORKTREE_ID, connectionId, {
+    runtime.registerPty(SOURCE_PTY_ID, options.ptyWorktreeId ?? WORKTREE_ID, connectionId, {
       tabId: TAB_ID,
       leafId: SOURCE_LEAF_ID,
       ...(options.sourceIncarnationId ? { incarnationId: options.sourceIncarnationId } : {})
@@ -314,6 +316,35 @@ describe('remote runtime terminal split authority', () => {
       )
     expect(siblingSurfaces).toHaveLength(2)
     expect(siblingSurfaces.every((tab) => tab.parentLayout?.root?.type === 'split')).toBe(true)
+  })
+
+  it('keeps the existing pane workspace key when Git changes equivalent path spelling', async () => {
+    const harness = createHarness(true, {
+      rendererMounted: true,
+      resolvedWorktreeId: `${WORKTREE_ID}/`
+    })
+    await harness.runtime.splitTerminal(harness.handle)
+    expect(harness.spawn).toHaveBeenCalledWith(expect.objectContaining({ worktreeId: WORKTREE_ID }))
+    expect(harness.revealTerminalSession).toHaveBeenCalledWith(WORKTREE_ID, expect.anything())
+  })
+
+  it('rejects a split that resolves to a different workspace', async () => {
+    const harness = createHarness(true, { resolvedWorktreeId: `${REPO_ID}::/different` })
+    await expect(harness.runtime.splitTerminal(harness.handle)).rejects.toThrow(
+      'terminal_workspace_changed'
+    )
+    expect(harness.spawn).not.toHaveBeenCalled()
+  })
+
+  it('keeps the persisted session key when PTY inventory changes equivalent path spelling', async () => {
+    const harness = createHarness(true, {
+      rendererMounted: true,
+      ptyWorktreeId: `${WORKTREE_ID}/`
+    })
+    await harness.runtime.splitTerminal(harness.handle)
+    expect(harness.spawn).toHaveBeenCalledWith(expect.objectContaining({ worktreeId: WORKTREE_ID }))
+    expect(harness.revealTerminalSession).toHaveBeenCalledWith(WORKTREE_ID, expect.anything())
+    expect(Object.keys(harness.getSession().tabsByWorktree)).toEqual([WORKTREE_ID])
   })
 
   it('rejects an unowned split source before spawning a PTY', async () => {

@@ -441,7 +441,11 @@ describe('useWebSessionTabsSync visibility collision recovery', () => {
       authoritative: true
     })
     const tabId = toWebTerminalSurfaceTabId('host-tab-b')
-    expect(useAppStore.getState().tabsByWorktree[WORKTREE]?.map((tab) => tab.id)).toEqual([tabId])
+    // The removal waits for the newer survivor recovery; both committed hosts stay visible.
+    expect(useAppStore.getState().tabsByWorktree[WORKTREE]?.map((tab) => tab.id)).toEqual([
+      toWebTerminalSurfaceTabId('host-tab-a'),
+      tabId
+    ])
     expect(_getWebSessionTabsTrackingCountsForTest().freshness).toBe(2)
 
     newerRecovery.resolve(makeTerminalSnapshot('-b', 2))
@@ -476,9 +480,11 @@ describe('useWebSessionTabsSync visibility collision recovery', () => {
     mocks.recoverSnapshot
       .mockImplementationOnce(() => staleRecovery.promise)
       .mockImplementationOnce(() => slowInventoryRecovery.promise)
+    const staleSnapshot = makeTerminalSnapshot('-a', 2)
+    staleSnapshot.tabs[0].title = 'Stale terminal title'
     await publish(findGlobalSubscription(ENV_A, 1), {
       type: 'updated',
-      ...makeTerminalSnapshot('-a', 2)
+      ...staleSnapshot
     })
     const unrelatedSnapshot = {
       ...makeTerminalSnapshot('-a'),
@@ -490,23 +496,30 @@ describe('useWebSessionTabsSync visibility collision recovery', () => {
       authoritative: true
     })
     const hostBTabId = toWebTerminalSurfaceTabId('host-tab-b')
-    expect(useAppStore.getState().tabsByWorktree[WORKTREE]?.map((tab) => tab.id)).toEqual([
-      hostBTabId
-    ])
+    const committedTabIds = [toWebTerminalSurfaceTabId('host-tab-a'), hostBTabId]
+    expect(useAppStore.getState().tabsByWorktree[WORKTREE]?.map((tab) => tab.id)).toEqual(
+      committedTabIds
+    )
 
-    staleRecovery.resolve(makeTerminalSnapshot('-a', 2))
+    staleRecovery.resolve(staleSnapshot)
     await act(settle)
-    expect(useAppStore.getState().tabsByWorktree[WORKTREE]?.map((tab) => tab.id)).toEqual([
-      hostBTabId
-    ])
+    expect(useAppStore.getState().tabsByWorktree[WORKTREE]?.map((tab) => tab.id)).toEqual(
+      committedTabIds
+    )
+    expect(useAppStore.getState().tabsByWorktree[WORKTREE]?.[0].title).toBe('Terminal -a')
 
     slowInventoryRecovery.resolve(unrelatedSnapshot)
     await act(settle)
+    // The survivor's resumed inventory is still unavailable, so the omission remains staged.
+    expect(useAppStore.getState().tabsByWorktree[WORKTREE]?.map((tab) => tab.id)).toEqual(
+      committedTabIds
+    )
     await publish(findGlobalSubscription(ENV_A, 1), {
       type: 'updated',
       ...makeTerminalSnapshot('-a', 3)
     })
     expect(useAppStore.getState().tabsByWorktree[WORKTREE]?.map((tab) => tab.id)).toEqual([
+      hostBTabId,
       toWebTerminalSurfaceTabId('host-tab-a')
     ])
     hook.unmount()

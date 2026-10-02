@@ -1,3 +1,5 @@
+import { buildPosixCommandPathLookupScript } from '../../shared/posix-command-path-lookup'
+
 const MANAGED_MARKER = '# Orca managed WSL CLI launcher'
 const BRIDGE_MANAGED_MARKER = '# Orca managed WSL CLI PowerShell bridge'
 
@@ -28,6 +30,16 @@ ORCA_WSL_CWD=$(pwd -P 2>/dev/null) || {
 }
 ORCA_BRIDGE_PS1_WIN=$(wslpath -w "$ORCA_BRIDGE_PS1")
 ORCA_WSL_CWD_WIN=$(wslpath -w "$ORCA_WSL_CWD")
+# Codex Team's CLI runs on Windows, but its TUI must stay in this exact guest account and cwd.
+if [ "\${1:-}" = codex-team ]; then
+  ${buildPosixCommandPathLookupScript({ kind: 'literal', value: 'codex' }, { skipWindowsMountDirs: true })}
+  if [ -z "$resolved" ]; then echo 'Codex CLI is unavailable in this WSL distro.' >&2; exit 127; fi
+  export ORCA_CODEX_TEAM_GUEST_COMMAND="$resolved"
+  export ORCA_CODEX_TEAM_GUEST_HOME="\${CODEX_HOME:-$HOME/.codex}"
+  export ORCA_CODEX_TEAM_GUEST_CWD="$ORCA_WSL_CWD"
+  export ORCA_CODEX_TEAM_GUEST_DISTRO="$WSL_DISTRO_NAME"
+  export WSLENV="\${WSLENV:-}:ORCA_CODEX_TEAM_GUEST_COMMAND/w:ORCA_CODEX_TEAM_GUEST_HOME/w:ORCA_CODEX_TEAM_GUEST_CWD/w:ORCA_CODEX_TEAM_GUEST_DISTRO/w"
+fi
 exec "$ORCA_POWERSHELL" -NoProfile -ExecutionPolicy Bypass -File "$ORCA_BRIDGE_PS1_WIN" "$ORCA_WIN_LAUNCHER" -WslCwd "$ORCA_WSL_CWD_WIN" "$@"
 `
 }

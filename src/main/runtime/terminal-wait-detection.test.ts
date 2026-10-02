@@ -506,3 +506,24 @@ describe('Antigravity readiness does not absorb its own startup dialog', () => {
     })
   }
 })
+
+describe('Codex 0.159 composer readiness', () => {
+  const composer = '› Ask Codex to do anything\n  GPT-6-Astra high · /workspace\n  ? for shortcuts'
+  it('recognizes the clipped composer in a narrow team pane while rejecting a busy screen', () => {
+    const narrow = '› Ask Codex to do any\n  GPT-6-Astra medium …\n  ? for sho  ⚠ 1 · f2'
+    expect(isKnownReadyPromptPreview(narrow)).toBe(true)
+    expect(isKnownReadyPromptPreview(`◦ Waiting for backgro…\n${narrow}`)).toBe(false)
+  })
+  it('accepts the cold-start composer without requiring a provider session', () => {
+    expect(isKnownReadyPromptPreview(composer)).toBe(true)
+    expect(isKnownReadyPromptPreview(`${composer}\nroot@NookNB:/workspace# `)).toBe(false)
+  })
+  it('does not mistake the composer displayed during a running turn for idle', () => {
+    expect(isKnownReadyPromptPreview(`• Working (1m 02s • esc to interrupt)\n${composer}`)).toBe(
+      false
+    )
+    expect(
+      isKnownReadyPromptPreview(`${composer}\nTrust this folder?\nPress enter to continue`)
+    ).toBe(false)
+  })
+})

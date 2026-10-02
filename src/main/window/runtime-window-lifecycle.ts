@@ -132,6 +132,7 @@ export function registerRuntimeWindowLifecycle(
           ...(opts.leafId !== undefined ? { leafId: opts.leafId } : {}),
           ...(opts.splitFromLeafId !== undefined ? { splitFromLeafId: opts.splitFromLeafId } : {}),
           ...(opts.splitDirection !== undefined ? { splitDirection: opts.splitDirection } : {}),
+          ...(opts.splitPlacement !== undefined ? { splitPlacement: opts.splitPlacement } : {}),
           ...(opts.splitTelemetrySource !== undefined
             ? { splitTelemetrySource: opts.splitTelemetrySource }
             : {}),
@@ -198,7 +199,8 @@ export function registerRuntimeWindowLifecycle(
         baseVersion,
         content
       }) as Promise<RuntimeMarkdownSaveTabResult>,
-    closeTerminal: (tabId, paneRuntimeId) => send('ui:closeTerminal', { tabId, paneRuntimeId }),
+    closeTerminal: (tabId, paneRuntimeId, retiredLeafId) =>
+      send('ui:closeTerminal', { tabId, paneRuntimeId, retiredLeafId }),
     closeTerminalTab: (tabId, options) =>
       requestTerminalTabCloseFromRenderer(mainWindow, tabId, options),
     sleepWorktree: (worktreeId) => send('ui:sleepWorktree', { worktreeId }),

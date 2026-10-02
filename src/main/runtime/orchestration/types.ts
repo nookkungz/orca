@@ -43,6 +43,7 @@ export type CoordinatorStatus = 'idle' | 'running' | 'completed' | 'failed'
 export type RunRow = {
   id: string
   objective: string
+  team_policy?: string | null
   home_database: string
   coordinator_handle: string | null
   coordinator_pane_key: string | null

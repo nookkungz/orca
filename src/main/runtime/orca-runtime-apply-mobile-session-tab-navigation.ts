@@ -100,6 +100,7 @@ export class OrcaRuntimeWithApplyMobileSessionTabNavigation extends OrcaRuntimeW
     tab: RuntimeMobileSessionTerminalTab
   ): boolean {
     return (
+      !this.getAvailableAuthoritativeWindow() ||
       this.isHeadlessMobileSessionPublication(snapshot.publicationEpoch) ||
       this.hasServeOrSshOwnedBinding(tab)
     )
@@ -129,7 +130,6 @@ export class OrcaRuntimeWithApplyMobileSessionTabNavigation extends OrcaRuntimeW
     }))
     const nextSnapshot: RuntimeMobileSessionTabsSnapshot = {
       ...snapshot,
-      publicationEpoch: `headless:${Date.now().toString(36)}`,
       snapshotVersion: snapshot.snapshotVersion + 1,
       activeTabId: activeTab.id,
       activeTabType: 'terminal',
@@ -158,6 +158,7 @@ export class OrcaRuntimeWithApplyMobileSessionTabNavigation extends OrcaRuntimeW
     ptyId: string
     splitFromLeafId: string
     direction: 'horizontal' | 'vertical'
+    placement?: 'before' | 'after'
   }): boolean {
     const session = this.getWorkspaceSessionForWorktree(args.worktreeId)
     if (!session || !this.store?.setWorkspaceSession) {

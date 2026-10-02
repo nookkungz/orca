@@ -205,8 +205,18 @@ async function completeWorkerTerminalReleaseOnce(
       dispatchId,
       terminalHandle: resource.terminal_handle,
       attachedAtMs: orchestrationTimestampToMs(worker.created_at),
+      preserveFullTranscript: Boolean(
+        db.getRun(db.getDispatchContextById(dispatchId)!.run_id)?.team_policy
+      ),
       structuredWorker: structured
     })
+    if (
+      captured.status === 'empty' &&
+      db.getRun(db.getDispatchContextById(dispatchId)!.run_id)?.team_policy
+    ) {
+      db.revertWorkerTerminalReleaseToRetained(resource.id, 'identity_unproven')
+      throw new Error('No team history could be preserved. The member and its slot were retained.')
+    }
     capturedArchive = { kind: captured.kind, content: JSON.stringify(captured.content) }
     archiveSource = captured.kind === 'terminal_tail' ? 'terminal' : 'transcript'
     archiveStatus = captured.status
@@ -254,7 +264,10 @@ async function completeWorkerTerminalReleaseOnce(
         archiveStatus
       })
     }
-    const close = await runtime.closeTerminal(resource.terminal_handle)
+    const team = db.getRun(db.getDispatchContextById(dispatchId)!.run_id)?.team_policy
+    const close = team
+      ? await runtime.closeTerminal(resource.terminal_handle, { waitForPhysicalExit: true })
+      : await runtime.closeTerminal(resource.terminal_handle)
     if (!close.ptyKilled) {
       const reason = describeUnconfirmedAgentStop(close)
       const unknown = db.markWorkerTerminalReleaseUnknown(resource.id, reason)

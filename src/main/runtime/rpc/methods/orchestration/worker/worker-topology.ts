@@ -5,6 +5,12 @@ import type { OrcaRuntimeService } from '../../../../orca-runtime'
 import type { OrchestrationDb } from '../../../../orchestration/db'
 import { OrchestrationError } from '../../../../orchestration/orchestration-error'
 import { createStructuredWorkerSession } from '../../orchestration-structured-worker-session'
+import type { CodexTeamPolicy } from '../../../../../../shared/codex-team'
+import { resolveAgentStartupPlanInputs } from '../../../../../../shared/agent-startup-plan-inputs'
+import {
+  buildShellCommandFromArgv,
+  quoteStartupArg
+} from '../../../../../../shared/tui-agent-startup-shell'
 
 export type WorkerEffect = {
   kind: 'worktree' | 'terminal' | 'setup' | 'dispatch_input'
@@ -62,8 +68,56 @@ export async function createExistingWorktreeWorkerTerminal(args: {
   agent: TuiAgent
   launchPreferences?: AgentLaunchPreferences
   taskId: string
+  team?: CodexTeamPolicy | null
+  coordinatorHandle?: string
   effects: WorkerEffect[]
 }): Promise<{ handle: string; warning?: string }> {
+  if (args.team && args.coordinatorHandle) {
+    const member = args.team.members.find((entry) => entry.state === 'opening' && !entry.handle)
+    const siblings = args.team.members
+      .filter((entry) => entry.handle && entry.slot !== member?.slot)
+      .sort((a, b) => a.slot - b.slot)
+    const sibling = siblings.find((entry) => entry.slot > (member?.slot ?? 0)) ?? siblings.at(-1)
+    const source = sibling?.paneKey
+      ? args.runtime.getTerminalHandleForPaneKey(sibling.paneKey)
+      : args.coordinatorHandle
+    if (!source) {
+      throw new Error('Team pane identity needs recovery.')
+    }
+    const context = await args.runtime.getCodexTeamContext(args.coordinatorHandle)
+    const { shell } = resolveAgentStartupPlanInputs({
+      agent: 'codex',
+      settings: context.settings,
+      platform: args.team.wslDistro ? 'linux' : process.platform,
+      isRemote: false
+    })
+    const terminal = await args.runtime.splitTerminal(source, {
+      direction: sibling ? 'horizontal' : 'vertical',
+      ...(sibling && member && sibling.slot > member.slot ? { placement: 'before' as const } : {}),
+      startupAgent: 'codex',
+      codexTeam: args.team,
+      launchPreferences: args.launchPreferences,
+      ...(args.team.codexCommand
+        ? { agentCommand: buildShellCommandFromArgv([args.team.codexCommand], shell ?? 'posix') }
+        : {}),
+      agentArgs: [...args.team.launchArgs, '-c', 'agents.enabled=false']
+        .map((arg) => quoteStartupArg(arg, shell ?? 'posix'))
+        .join(' '),
+      cwd: args.team.cwd,
+      title: `Worker ${member?.slot ?? ''} · requested ${member?.model ?? ''} / ${member?.effort ?? ''}`,
+      activate: false,
+      surfaceOwner: false
+    })
+    args.effects.push({
+      kind: 'terminal',
+      role: 'agent',
+      action: 'created',
+      id: terminal.handle,
+      tabId: terminal.tabId,
+      leafId: terminal.leafId
+    })
+    return { handle: terminal.handle }
+  }
   const terminal = await args.runtime.createTerminal(`id:${args.worktreeId}`, {
     // Why: the agent id is not a shell command — `cursor` resolves to the Cursor
     // desktop app while its CLI is `cursor-agent`. Let the runtime build the

@@ -114,7 +114,30 @@ function findCursorReadyPromptIndex(normalized: string): number | null {
   return CURSOR_BUSY_SPINNER_RE.test(normalized.slice(activeIndex)) ? null : activeIndex
 }
 
+export function findCodexComposerReadyPromptIndex(normalized: string): number | null {
+  // Codex 0.159 cold starts show the composer and footer instead of the old text banner.
+  const start = startOfLastNonBlankLines(normalized, 12)
+  const tail = normalized.slice(start)
+  const composer = /^\s*› ask codex to do any(?:thing)?\s*$/m.exec(tail)
+  if (
+    composer &&
+    /(?:^|\n)[ \t]*\S+ (?:none|minimal|low|medium|high|xhigh)[^\n]*(?:\n[ \t]*\?[^\n]*)?\s*$/.test(
+      tail
+    ) &&
+    !/esc to (?:interrupt|cancel)|\b(?:working|thinking|running) \(|^[◦•]\s*(?:waiting|working|thinking|running)\b/im.test(
+      tail
+    )
+  ) {
+    return start + composer.index
+  }
+  return null
+}
+
 function findCodexReadyPromptIndex(normalized: string): number | null {
+  const composerIndex = findCodexComposerReadyPromptIndex(normalized)
+  if (composerIndex !== null) {
+    return composerIndex
+  }
   const headerIndex = normalized.lastIndexOf('openai codex')
   if (headerIndex === -1) {
     return null

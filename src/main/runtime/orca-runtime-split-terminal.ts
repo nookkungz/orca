@@ -3,12 +3,18 @@ import { OrcaRuntimeWithStopExplicitlyClosedTabPtys } from './orca-runtime-stop-
 import type { TerminalPaneSplitSource } from '../../shared/feature-education-telemetry'
 import type { RuntimeTerminalSplit } from '../../shared/runtime-types'
 import { randomUUID } from 'node:crypto'
+import type { TerminalCreateOptions } from './runtime-terminal-contracts'
 
 export class OrcaRuntimeWithSplitTerminal extends OrcaRuntimeWithStopExplicitlyClosedTabPtys {
   async splitTerminal(
     handle: string,
-    opts: {
+    opts: Pick<
+      TerminalCreateOptions,
+      'startupAgent' | 'launchPreferences' | 'agentArgs' | 'agentCommand' | 'cwd' | 'title'
+    > & {
+      codexTeam?: { codexHome: string | null; wslDistro: string | null }
       direction?: 'horizontal' | 'vertical'
+      placement?: 'before' | 'after'
       command?: string
       env?: Record<string, string>
       envToDelete?: string[]
@@ -25,6 +31,13 @@ export class OrcaRuntimeWithSplitTerminal extends OrcaRuntimeWithStopExplicitlyC
     }
     this.assertGraphReady()
     const { leaf } = this.getLiveLeafForHandle(handle)
+    if (opts.startupAgent) {
+      const pty = leaf.ptyId ? this.ptysById.get(leaf.ptyId) : undefined
+      if (!pty?.connected) {
+        throw new Error('Agent split requires a verified live PTY.')
+      }
+      return await this.splitPtyBackedTerminal(pty, opts)
+    }
     const direction = opts.direction ?? 'horizontal'
 
     const newLeafId = randomUUID()

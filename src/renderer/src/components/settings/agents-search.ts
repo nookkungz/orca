@@ -46,6 +46,7 @@ function buildAgentSettingsKeywords(): string[] {
     keywords.push(...expandAgentSearchText(agent.id), ...expandAgentSearchText(agent.label))
     keywords.push(...expandAgentSearchText(agent.cmd))
   }
+  keywords.push('Codex Team', 'worker', 'subagent', 'model', 'effort', 'minimum', 'maximum')
 
   return uniqueKeywords(keywords)
 }

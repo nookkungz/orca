@@ -22,6 +22,21 @@ function normalizeLegacyProfile(overrides: Record<string, unknown>): PersistedSt
 }
 
 describe('retired Agents sidebar setting', () => {
+  it('retains Codex Team model effort ranges after loading and keeps older profiles unrestricted', () => {
+    const codexTeam = {
+      maxWorkers: 2,
+      allowedModels: ['future-model'],
+      modelEffortRanges: { 'future-model': { min: 'medium', max: 'xhigh' } }
+    }
+    expect(normalizeLegacyProfile({ codexTeam }).codexTeam).toEqual(codexTeam)
+    expect(
+      normalizeLegacyProfile({ codexTeam: { maxWorkers: 2, allowedModels: ['legacy-model'] } })
+        .codexTeam
+    ).toEqual({
+      maxWorkers: 2,
+      allowedModels: ['legacy-model']
+    })
+  })
   it('does not mark new profiles as migrated', () => {
     expect(normalizeLegacyProfile({}).agentsSidebarMigratedFromExperimental).toBe(false)
   })

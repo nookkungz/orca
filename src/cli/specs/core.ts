@@ -7,6 +7,13 @@ import { TERMINAL_CLOSE_COMMAND_SPEC } from './terminal-close'
 
 export const CORE_COMMAND_SPECS: CommandSpec[] = [
   {
+    path: ['codex-team'],
+    argumentMode: 'passthrough',
+    summary: 'Start a Codex Team in the current Orca terminal',
+    usage: 'orca codex-team [codex options] [--orca-team-prompt <task>]',
+    allowedFlags: [...GLOBAL_FLAGS]
+  },
+  {
     path: ['open'],
     summary: 'Launch Orca and wait for the runtime to be reachable',
     usage: 'orca open [--json]',

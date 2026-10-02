@@ -19,7 +19,7 @@ export async function prepareCodexRuntimeHomeForLaunch(
   }
   if (
     target?.runtime !== 'wsl' &&
-    launchContext?.launchAgent === 'codex' &&
+    (launchContext?.launchAgent === 'codex' || launchContext?.launchAgent === 'codex-team') &&
     launchContext.workspacePath
   ) {
     try {

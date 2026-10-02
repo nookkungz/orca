@@ -13,6 +13,7 @@ import {
   resolveWorkerStartReadinessTimeoutMs
 } from '../../../../../../shared/orchestration-timing-budgets'
 import { assertWorkerStartTaskSpecWithinPromptBudget } from './worker-start-prompt-budget'
+import { withCodexTeamStart } from './codex-team-worker'
 
 export const ORCHESTRATION_WORKER_START_METHODS = [
   defineMethod({
@@ -54,6 +55,9 @@ export const ORCHESTRATION_WORKER_START_METHODS = [
         settings: readWorkerStartModeSettings(runtime)
       })
       if (params.on) {
+        if (run.team_policy) {
+          throw new Error('Codex Team does not support workers on another host.')
+        }
         // A remote worker is always a terminal agent; the mode receipt rides along so the
         // coordinator still learns why its structured default did not apply.
         const receipt = await startFederatedWorker({
@@ -66,16 +70,18 @@ export const ORCHESTRATION_WORKER_START_METHODS = [
         })
         return receipt && typeof receipt === 'object' ? { ...receipt, mode } : receipt
       }
-      return startLocalWorker({
-        params: { ...params, timeoutMs: readinessTimeoutMs },
-        runtime,
-        db,
-        run,
-        coordinatorPane,
-        existingTask,
-        orchestrationMutation,
-        mode
-      })
+      const start = () =>
+        startLocalWorker({
+          params: { ...params, timeoutMs: readinessTimeoutMs },
+          runtime,
+          db,
+          run,
+          coordinatorPane,
+          existingTask,
+          orchestrationMutation,
+          mode
+        })
+      return run.team_policy ? withCodexTeamStart(runtime, run.id, start) : start()
     }
   })
 ]

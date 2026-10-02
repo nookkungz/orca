@@ -118,6 +118,7 @@ export function createOrchestrationWorkerReleaseHarness(): OrchestrationWorkerRe
       handle: 'term_worker',
       status: 'running',
       tail: ['worker output line 1', 'worker output line 2'],
+      source: 'stream',
       truncated: false,
       nextCursor: '2'
     })

@@ -104,17 +104,20 @@ export function normalizeTuiAgentEnvRecord(
 }
 
 export function getTuiAgentDefaultArgs(agent: TuiAgent): string {
-  return DEFAULT_TUI_AGENT_ARGS[agent] ?? ''
+  return DEFAULT_TUI_AGENT_ARGS[agent === 'codex-team' ? 'codex' : agent] ?? ''
 }
 
 export function getTuiAgentDefaultEnv(agent: TuiAgent): Record<string, string> {
-  return { ...DEFAULT_TUI_AGENT_ENV[agent] }
+  return { ...DEFAULT_TUI_AGENT_ENV[agent === 'codex-team' ? 'codex' : agent] }
 }
 
 export function resolveTuiAgentLaunchArgs(
   agent: TuiAgent,
   configuredArgs: Partial<Record<TuiAgent, string>> | null | undefined
 ): string {
+  if (agent === 'codex-team') {
+    return resolveTuiAgentLaunchArgs('codex', configuredArgs)
+  }
   if (
     configuredArgs &&
     Object.hasOwn(configuredArgs, agent) &&
@@ -159,6 +162,9 @@ export function resolveTuiAgentLaunchEnv(
   agent: TuiAgent,
   configuredEnv: Partial<Record<TuiAgent, Record<string, string>>> | null | undefined
 ): Record<string, string> {
+  if (agent === 'codex-team') {
+    return resolveTuiAgentLaunchEnv('codex', configuredEnv)
+  }
   if (configuredEnv && Object.hasOwn(configuredEnv, agent)) {
     return { ...configuredEnv[agent] }
   }

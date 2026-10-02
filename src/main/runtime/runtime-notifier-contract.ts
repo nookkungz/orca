@@ -63,6 +63,7 @@ export type RuntimeNotifier = {
       leafId?: string
       splitFromLeafId?: string
       splitDirection?: 'horizontal' | 'vertical'
+      splitPlacement?: 'before' | 'after'
       splitTelemetrySource?: TerminalPaneSplitSource
       focus?: boolean
       expectedProcessIdentity?: {
@@ -117,7 +118,7 @@ export type RuntimeNotifier = {
     baseVersion: string,
     content: string
   ): Promise<RuntimeMarkdownSaveTabResult>
-  closeTerminal(tabId: string, paneRuntimeId?: number): void
+  closeTerminal(tabId: string, paneRuntimeId?: number, retiredLeafId?: string): void
   closeTerminalTab?(
     tabId: string,
     options?: { localPtyTeardownOwnedExternally?: boolean; force?: boolean }

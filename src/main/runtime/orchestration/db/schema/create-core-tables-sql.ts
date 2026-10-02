@@ -5,6 +5,7 @@ export function createCoreTablesSql(): string {
 CREATE TABLE IF NOT EXISTS runs (
   id                    TEXT PRIMARY KEY,
   objective             TEXT NOT NULL,
+  team_policy           TEXT,
   home_database         TEXT NOT NULL DEFAULT 'this_database',
   coordinator_handle    TEXT,
   coordinator_pane_key  TEXT,

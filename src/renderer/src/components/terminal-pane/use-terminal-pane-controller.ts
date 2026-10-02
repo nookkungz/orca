@@ -32,10 +32,10 @@ export function useTerminalPaneController(
   const reconciliation = Object.assign(close, useTerminalPaneReconciliation(close))
   useTerminalPaneGlobalListeners(reconciliation)
   useTerminalPanePasteListeners(reconciliation)
-  useTerminalPaneTitleEffects(reconciliation)
+  const codexTeam = useTerminalPaneTitleEffects(reconciliation)
   const context = Object.assign(reconciliation, useTerminalPaneContextActions(reconciliation))
   const mobile = Object.assign(context, useTerminalPaneMobileActions(context))
-  return Object.assign(mobile, useTerminalPaneProjection(mobile))
+  return Object.assign(mobile, useTerminalPaneProjection(mobile), { codexTeam })
 }
 
 export type TerminalPaneController = ReturnType<typeof useTerminalPaneController>

@@ -50,6 +50,8 @@ export function resolveAgentSessionOptionLaunch(
       if (explicitValue !== undefined) {
         if (
           !model &&
+          agent !== 'codex' &&
+          agent !== 'codex-team' &&
           option.kind.type === 'select' &&
           !option.kind.choices.some((choice) => choice.value === explicitValue)
         ) {

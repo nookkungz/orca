@@ -73,6 +73,12 @@ export const getAgentCatalog = createLocalizedCatalog((): AgentCatalogEntry[] =>
     homepageUrl: 'https://github.com/openai/codex'
   },
   {
+    id: 'codex-team',
+    label: 'Codex Team',
+    cmd: getTuiAgentLaunchCommand(TUI_AGENT_CONFIG['codex-team'], getCatalogPlatform()),
+    homepageUrl: 'https://github.com/openai/codex'
+  },
+  {
     id: 'grok',
     label: translate('auto.lib.agent.catalog.0baad2d5d2', 'Grok'),
     cmd: 'grok',
@@ -341,7 +347,7 @@ export function AgentIcon({
   if (agent === 'claude' || agent === 'claude-agent-teams') {
     return <ClaudeIcon size={size} />
   }
-  if (agent === 'codex') {
+  if (agent === 'codex' || agent === 'codex-team') {
     return <OpenAIIcon size={size} />
   }
   if (agent === 'droid') {

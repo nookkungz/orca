@@ -52,6 +52,7 @@ export function resolveWorkerLaunchPreferences(args: {
   agent: TuiAgent
   model?: string
   effort?: string
+  validatedCodexCatalog?: boolean
 }): {
   preferences: AgentLaunchPreferences | undefined
   receipt: OrchestrationWorkerLaunchReceipt
@@ -74,7 +75,7 @@ export function resolveWorkerLaunchPreferences(args: {
     )
   }
 
-  if (args.effort) {
+  if (args.effort && !(args.agent === 'codex' && args.validatedCodexCatalog)) {
     const model = findCatalogModel(catalog, args.model)
     const option =
       findCatalogOption(model, 'effort') ??

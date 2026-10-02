@@ -238,6 +238,14 @@ export class OrcaRuntimeWithAdoptTerminalOrphansFromInventory extends OrcaRuntim
   // death certificate has to stay readable.
   getTerminalLivenessVerdict(handle: string): PtyLivenessVerdict | null {
     const record = this.getLivePtyForHandle(handle)?.record ?? this.handles.get(handle)
-    return record?.ptyId ? this.getPtyLivenessVerdict(record.ptyId) : null
+    if (record?.ptyId) {
+      return this.getPtyLivenessVerdict(record.ptyId)
+    }
+    // Renderer-mounted handles keep their PTY binding in the live graph.
+    try {
+      return this.getPtyLivenessVerdict(this.getTerminalAgentStatusPtyId(handle))
+    } catch {
+      return null
+    }
   }
 }

@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ManagedPane, PaneManager } from '@/lib/pane-manager/pane-manager'
 import type { PtyTransport } from './pty-transport'
 import TerminalPaneHeaderOverlay from './TerminalPaneHeaderOverlay'
+import type { CodexTeamView } from '../../../../shared/codex-team'
 
 vi.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: { children?: ReactNode }) => children,
@@ -41,6 +42,7 @@ function makePane(id: number): ManagedPane {
 
 function renderOverlay({
   paneTitles,
+  team,
   paneCount = 2,
   showAlwaysOnHeaders = true,
   showSplitButton = true,
@@ -53,6 +55,7 @@ function renderOverlay({
   renamingPaneId = null
 }: {
   paneTitles: Record<number, string>
+  team?: CodexTeamView
   paneCount?: number
   showAlwaysOnHeaders?: boolean
   showSplitButton?: boolean
@@ -76,6 +79,7 @@ function renderOverlay({
   act(() => {
     root.render(
       <TerminalPaneHeaderOverlay
+        team={team}
         tabId="tab-1"
         worktreeId="wt-1"
         cwd={path.join(path.sep, 'tmp')}
@@ -159,6 +163,26 @@ describe('TerminalPaneHeaderOverlay', () => {
 
     expect(onRemoveTitle).toHaveBeenCalledWith(1)
     expect(onClosePane).not.toHaveBeenCalledWith(1)
+  })
+
+  it('keeps a team header opaque and interactive after the terminal launch title clears', () => {
+    const { container } = renderOverlay({
+      paneTitles: {},
+      team: {
+        runId: 'run_team',
+        panes: [
+          {
+            paneKey: 'tab-1:leaf-1',
+            role: 'Leader',
+            model: 'quality',
+            effort: 'high',
+            recovery: false
+          }
+        ]
+      }
+    })
+    expect(container.querySelector('.pane-title-bar')?.hasAttribute('data-chromeless')).toBe(false)
+    expect(container.textContent).toContain('Leader · requested quality / high')
   })
 
   it('keeps split and close-pane controls available for untitled split pane headers', () => {

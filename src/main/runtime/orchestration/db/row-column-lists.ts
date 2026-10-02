@@ -10,6 +10,7 @@ import type { DispatchContextRow, RunRow, TaskRow } from '../types'
 export const RUN_COLUMNS = [
   'id',
   'objective',
+  'team_policy',
   'home_database',
   'coordinator_handle',
   'coordinator_pane_key',

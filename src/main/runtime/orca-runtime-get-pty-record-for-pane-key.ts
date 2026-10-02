@@ -4,6 +4,9 @@ import type { RuntimeLeafRecord, RuntimePtyWorktreeRecord } from './runtime-term
 import { isTerminalLeafId, makePaneKey, parsePaneKey } from '../../shared/stable-pane-id'
 import { detectAgentStatusFromTitle, isClaudeManagementTitle } from '../../shared/agent-detection'
 import { recognizeAgentProcess } from '../../shared/agent-process-recognition'
+import { findCodexComposerReadyPromptIndex } from './terminal-wait-detection'
+import { VISIBLE_TERMINAL_SNAPSHOT_TIMEOUT_MS } from './orca-runtime-postlude'
+import { withTimeout } from './runtime-async-boundaries'
 import { agentSessionPtyWriteGate } from './agent-session-pty-write-gate'
 import { resolveStructuredWorkerAuthority } from './structured-worker-authority'
 import { structuredWorkerIdentities } from './structured-worker-identity'
@@ -109,7 +112,30 @@ export class OrcaRuntimeWithGetPtyRecordForPaneKey extends OrcaRuntimeWithPruneM
     handle: string,
     options?: { retryForegroundWrappers?: boolean }
   ): Promise<boolean> {
-    return this.terminalAgentPresence.isRunning(handle, options)
+    if (await this.terminalAgentPresence.isRunning(handle, options)) {
+      return true
+    }
+    try {
+      const pty = this.ptysById.get(this.getTerminalAgentStatusPtyId(handle))
+      if (
+        !pty?.connected ||
+        !['codex', 'codex-team'].includes(pty.foregroundAgent ?? pty.launchAgent ?? '')
+      ) {
+        return false
+      }
+      // WSL can expose only wsl.exe; Codex's idle cursor redraw may be absent from retained text.
+      const snapshot = await withTimeout(
+        this.readTerminal(handle, { screen: true }),
+        VISIBLE_TERMINAL_SNAPSHOT_TIMEOUT_MS,
+        null
+      )
+      return (
+        snapshot?.source === 'screen' &&
+        findCodexComposerReadyPromptIndex(snapshot.tail.join('\n').toLowerCase()) !== null
+      )
+    } catch {
+      return false
+    }
   }
 
   async isTerminalRunningSettledPromptAgent(handle: string): Promise<boolean> {

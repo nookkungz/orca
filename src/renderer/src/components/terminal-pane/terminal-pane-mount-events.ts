@@ -60,7 +60,15 @@ export function installTerminalPaneMountEvents(args: {
           direction: detail.direction
         })
       } else {
-        const createdPane = mgr.splitPane(sourcePaneId, detail.direction, splitOptions)
+        const createdPane =
+          detail.placement === 'before'
+            ? mgr.splitPaneAroundLeafIds(
+                detail.sourceLeafId ? [detail.sourceLeafId] : [],
+                sourcePaneId,
+                detail.direction,
+                { ...splitOptions, placement: 'before' }
+              )
+            : mgr.splitPane(sourcePaneId, detail.direction, splitOptions)
         const telemetrySuppressed = createdPane
           ? consumePendingWebRuntimeSplitMirrorTelemetry(detail.sourcePtyId, detail.direction)
           : false

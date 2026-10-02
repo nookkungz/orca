@@ -75,11 +75,25 @@ export async function assemblePtyIpcSpawnCodexEnv(ctx: PtyIpcSpawnState): Promis
             : await selectLaunchCodexHome()
         )
       : null
-  if (!ctx.preAdoptedStablePane && args.launchAgent === 'codex' && args.sessionId === undefined) {
+  const teamHome = ctx.baseEnv?.ORCA_CODEX_TEAM_HOME
+  if (teamHome !== undefined && !ctx.preAdoptedStablePane) {
+    if (
+      args.connectionId ||
+      (ctx.baseEnv?.ORCA_CODEX_TEAM_DISTRO ?? '') !== (ctx.expectedWslDistro ?? '')
+    ) {
+      throw new Error('Codex Team execution host or WSL distro changed; recover the existing team.')
+    }
+    ctx.selectedCodexHomePath = teamHome || null
+  }
+  if (
+    !ctx.preAdoptedStablePane &&
+    (args.launchAgent === 'codex' || args.launchAgent === 'codex-team') &&
+    args.sessionId === undefined
+  ) {
     const resolution = resolveCodexHomeAfterManagedAuthReadiness({
       selectedCodexHomePath: ctx.selectedCodexHomePath,
       getSettings: () => ctx.deps.getSettings?.(),
-      requiredCodexHomePath: codexResumeHome?.codexHomePath,
+      requiredCodexHomePath: teamHome || codexResumeHome?.codexHomePath,
       target: ctx.codexSelectionTarget,
       resolveCurrent: async () =>
         getCompatibleSelectedCodexHomePath(
@@ -101,7 +115,10 @@ export async function assemblePtyIpcSpawnCodexEnv(ctx: PtyIpcSpawnState): Promis
     })
     ctx.selectedCodexHomePath = resolution instanceof Promise ? await resolution : resolution
   }
-  if (args.launchAgent === 'codex' && ctx.selectedCodexHomePath) {
+  if (
+    (args.launchAgent === 'codex' || args.launchAgent === 'codex-team') &&
+    ctx.selectedCodexHomePath
+  ) {
     await ensureCodexStateDbBackfillRecoveryStarted(ctx.selectedCodexHomePath)
   }
   ctx.spawnTiming.mark('codex_home')

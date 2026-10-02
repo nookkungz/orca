@@ -1,3 +1,4 @@
+import type { CodexTeamSettings } from './codex-team'
 import type { ExecutionHostId } from './execution-host'
 import type { GitHubProjectSettings } from './github/project-types'
 import type { VoiceSettings } from './speech-types'
@@ -341,6 +342,7 @@ export type GlobalSettings = {
   defaultTuiAgent: TuiAgent | 'blank' | null
   /** Agents hidden from picker/auto-launch; detection stays a raw PATH snapshot. */
   disabledTuiAgents: TuiAgent[]
+  codexTeam?: CodexTeamSettings
   /** Master switch for the experimental plugin system. Off by default: no
    *  discovery, no panels, no plugin code paths run at all. */
   pluginSystemEnabled: boolean

@@ -1,18 +1,21 @@
 // @ts-nocheck -- mechanically split from OrcaRuntimeService; behavior is covered by AST equivalence and characterization tests.
+import { IMMEDIATE_KILL_PHYSICAL_EXIT_TIMEOUT_MS } from '../daemon/session-termination-controller'
 import { OrcaRuntimeWithFocusTerminal } from './orca-runtime-focus-terminal'
 import { EXPLICIT_TERMINAL_CLOSE_STOP_TIMEOUT_MS } from './orca-runtime-core'
 import { SSH_PROVIDER_UNREGISTERED_REASON } from '../../shared/pty-liveness-verdict'
 import type { RuntimeTerminalClose } from '../../shared/runtime-types'
 import { countTerminalLayoutLeaves } from './headless-terminal-split-layout'
 import type { RuntimePtyTabCloseAuthority } from './runtime-terminal-state-records'
+import { parsePaneKey } from '../../shared/stable-pane-id'
 
 export class OrcaRuntimeWithStopExplicitlyClosedTabPtys extends OrcaRuntimeWithFocusTerminal {
   protected async stopExplicitlyClosedTabPtys(
     ptyIds: readonly string[],
-    addressedPtyId: string
+    addressedPtyId: string,
+    timeoutMs = EXPLICIT_TERMINAL_CLOSE_STOP_TIMEOUT_MS
   ): Promise<boolean> {
     let addressedPtyStopped = false
-    const deadlineMs = Date.now() + EXPLICIT_TERMINAL_CLOSE_STOP_TIMEOUT_MS
+    const deadlineMs = Date.now() + timeoutMs
     for (const ptyId of ptyIds) {
       this.markPtyStopRequested(ptyId)
       const expectedIncarnationId = this.ptysById.get(ptyId)?.incarnationId
@@ -85,8 +88,16 @@ export class OrcaRuntimeWithStopExplicitlyClosedTabPtys extends OrcaRuntimeWithF
     return { handle, tabId, ptyKilled }
   }
 
-  async closeTerminal(handle: string): Promise<RuntimeTerminalClose> {
+  async closeTerminal(
+    handle: string,
+    opts?: { waitForPhysicalExit?: boolean }
+  ): Promise<RuntimeTerminalClose> {
+    // Model replacement needs the daemon's complete physical-exit budget before a new session may occupy the slot.
+    const stopTimeoutMs = opts?.waitForPhysicalExit
+      ? IMMEDIATE_KILL_PHYSICAL_EXIT_TIMEOUT_MS + 2000
+      : EXPLICIT_TERMINAL_CLOSE_STOP_TIMEOUT_MS
     const pty = this.getLivePtyForHandle(handle)
+    const closingPane = parsePaneKey(this.getTerminalPaneKey(handle) ?? '')
     this.claudeAgentTeams.removeTeamForLeaderHandle(handle)
     if (pty) {
       const closeAuthority: RuntimePtyTabCloseAuthority = {
@@ -122,7 +133,11 @@ export class OrcaRuntimeWithStopExplicitlyClosedTabPtys extends OrcaRuntimeWithF
           }
           this.notifier.closeTerminal?.(tabId)
         }
-        const ptyKilled = await this.stopExplicitlyClosedTabPtys(ptyIdsToKill, pty.pty.ptyId)
+        const ptyKilled = await this.stopExplicitlyClosedTabPtys(
+          ptyIdsToKill,
+          pty.pty.ptyId,
+          stopTimeoutMs
+        )
         return this.describeTerminalClose(handle, tabId, pty.pty.ptyId, ptyKilled)
       }
       if (
@@ -141,20 +156,40 @@ export class OrcaRuntimeWithStopExplicitlyClosedTabPtys extends OrcaRuntimeWithF
           if (!(error instanceof Error) || error.message !== 'workspace_session_unavailable') {
             throw error
           }
-          const ptyKilled = await this.stopExplicitlyClosedTabPtys([pty.pty.ptyId], pty.pty.ptyId)
+          const ptyKilled = await this.stopExplicitlyClosedTabPtys(
+            [pty.pty.ptyId],
+            pty.pty.ptyId,
+            stopTimeoutMs
+          )
           this.notifier?.closeTerminal(tabId)
           return this.describeTerminalClose(handle, tabId, pty.pty.ptyId, ptyKilled)
         }
-        const ptyKilled = await this.stopExplicitlyClosedTabPtys([pty.pty.ptyId], pty.pty.ptyId)
+        const ptyKilled = await this.stopExplicitlyClosedTabPtys(
+          [pty.pty.ptyId],
+          pty.pty.ptyId,
+          stopTimeoutMs
+        )
         return this.describeTerminalClose(handle, tabId, pty.pty.ptyId, ptyKilled)
       }
       if (siblingCount <= 1 && !surface && pty.pty.tabId && this.notifier?.closeTerminalTab) {
         const ptyIdsToKill = this.getPtyIdsForExplicitTabClose(pty.pty.worktreeId, tabId)
         await this.notifier.closeTerminalTab(tabId, { localPtyTeardownOwnedExternally: true })
-        const ptyKilled = await this.stopExplicitlyClosedTabPtys(ptyIdsToKill, pty.pty.ptyId)
+        const ptyKilled = await this.stopExplicitlyClosedTabPtys(
+          ptyIdsToKill,
+          pty.pty.ptyId,
+          stopTimeoutMs
+        )
         return this.describeTerminalClose(handle, tabId, pty.pty.ptyId, ptyKilled)
       }
-      const ptyKilled = await this.stopExplicitlyClosedTabPtys([pty.pty.ptyId], pty.pty.ptyId)
+      const ptyKilled = await this.stopExplicitlyClosedTabPtys(
+        [pty.pty.ptyId],
+        pty.pty.ptyId,
+        stopTimeoutMs
+      )
+      if (ptyKilled && siblingCount > 1 && closingPane) {
+        // A physical stop may leave a renderer's ended stream mounted. Retire only this stable leaf.
+        this.notifier?.closeTerminal(tabId, undefined, closingPane.leafId)
+      }
       if (!ptyKilled || siblingCount <= 1) {
         if (surface) {
           // Why: paired viewers keep ended streams mounted until the HUB publishes removal, so explicit close uses the durable host-tab transaction instead of viewer-local exit handling.
@@ -188,8 +223,11 @@ export class OrcaRuntimeWithStopExplicitlyClosedTabPtys extends OrcaRuntimeWithF
       await this.notifier.closeTerminalTab(leaf.tabId, { localPtyTeardownOwnedExternally: true })
     }
     const ptyKilled = leaf.ptyId
-      ? await this.stopExplicitlyClosedTabPtys(ptyIdsToKill, leaf.ptyId)
+      ? await this.stopExplicitlyClosedTabPtys(ptyIdsToKill, leaf.ptyId, stopTimeoutMs)
       : false
+    if (ptyKilled && siblingCount > 1 && closingPane) {
+      this.notifier?.closeTerminal(leaf.tabId, undefined, closingPane.leafId)
+    }
     if (siblingCount > 1 ? !ptyKilled : !this.notifier?.closeTerminalTab) {
       this.notifier?.closeTerminal(leaf.tabId, leaf.paneRuntimeId)
     }

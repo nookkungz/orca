@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile, readFile, unlink } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -6,6 +6,10 @@ import type { OrcaRuntimeService } from '../orca-runtime'
 import * as sshFilesystemDispatch from '../../providers/ssh-filesystem-dispatch'
 import * as workerTranscriptRead from './worker-transcript-read'
 import { captureWorkerOutputArchive, summarizeWorkerOutputArchive } from './worker-output-archive'
+import { installFakeAppEnvironment } from '../../../../config/scripts/vitest-host-ports-setup'
+import { readArchivedWorkerOutput } from '../rpc/methods/orchestration/worker/worker-archive-read'
+import { readCodexTeamReportedSelection } from '../../codex/codex-team-catalog'
+import type { ExactWorkerProviderSession } from '../../../shared/orchestration-worker-output'
 
 describe('worker output archive summary', () => {
   it('reports a draft-only terminal archive as captured', () => {
@@ -48,6 +52,79 @@ describe('worker output archive WSL routing', () => {
     sshProviderLookup.mockRestore()
     transcriptReadSpy?.mockRestore()
     await rm(directory, { recursive: true, force: true })
+  })
+
+  it('preserves and pages a complete team transcript after the provider file is gone', async () => {
+    installFakeAppEnvironment({ getPath: () => directory })
+    const original = `${JSON.stringify({ type: 'turn_context', payload: { model: 'confirmed-model', effort: 'xhigh' } })}\n${Array.from(
+      { length: 70 },
+      (_, index) => codexMessage(`m${index}`, `${index}: ${'x'.repeat(2000)}`)
+    ).join('\n')}\n`
+    await writeFile(transcriptPath, original)
+    const session: ExactWorkerProviderSession = {
+      paneKey: 'tab:worker',
+      agent: 'codex',
+      processIncarnation: 'inc-1',
+      observedAt: Date.now(),
+      providerSession: { key: 'session_id', id: 'archive-test', transcriptPath }
+    }
+    expect(await readCodexTeamReportedSelection(null)).toBeNull()
+    expect(await readCodexTeamReportedSelection(session)).toEqual({
+      model: 'confirmed-model',
+      effort: 'xhigh'
+    })
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: archive capture only reads these two runtime methods.
+    const runtime = {
+      getExactWorkerProviderSession: () => session,
+      readTerminal: vi.fn()
+    } as unknown as OrcaRuntimeService
+    const archive = await captureWorkerOutputArchive({
+      runtime,
+      dispatchId: 'dispatch-full',
+      terminalHandle: 'worker',
+      attachedAtMs: 0,
+      preserveFullTranscript: true
+    })
+    expect(archive.kind).toBe('transcript_pin')
+    if (archive.kind !== 'transcript_pin') {
+      throw new Error('Expected a transcript')
+    }
+    expect(await readFile(archive.content.fullTranscriptPath!, 'utf8')).toBe(original)
+    await unlink(transcriptPath)
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: archived reads only request the frozen archive row.
+    const db = {
+      getWorkerTerminalArchive: () => ({
+        ...archive,
+        content: JSON.stringify(archive.content),
+        created_at: '2026-09-30'
+      })
+    } as never
+    let cursor: string | undefined
+    let count = 0
+    for (;;) {
+      const page = await readArchivedWorkerOutput({
+        db,
+        dispatchId: 'dispatch-full',
+        workerState: 'succeeded',
+        resource: { id: 'r1', terminal_handle: 'worker', release_state: 'released' },
+        cursor,
+        limit: 20
+      })
+      if (page.source !== 'transcript') {
+        throw new Error('Expected transcript page')
+      }
+      count += page.transcript.messages.length
+      expect(
+        page.transcript.messages.every((message) =>
+          message.blocks.some((block) => block.type === 'text' && block.text.length > 2000)
+        )
+      ).toBe(true)
+      if (!page.transcript.limited) {
+        break
+      }
+      cursor = page.cursor
+    }
+    expect(count).toBe(70)
   })
 
   it('keeps WSL relay sessions on the local guarded transcript resolver', async () => {

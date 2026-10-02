@@ -190,6 +190,7 @@ export function buildDefaultSettings(args: {
     terminalModelQueryAuthority: true,
     defaultTuiAgent: null,
     disabledTuiAgents: [...DEFAULT_DISABLED_TUI_AGENTS],
+    codexTeam: { maxWorkers: 3, allowedModels: null },
     pluginSystemEnabled: false,
     disabledPlugins: [],
     pluginConsents: {},

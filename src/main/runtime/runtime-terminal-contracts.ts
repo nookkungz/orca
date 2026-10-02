@@ -55,6 +55,8 @@ export type TerminalCreateOptions = {
    * the runtime still builds, so overriding them does not take the launch away from it.
    */
   agentArgs?: string | null
+  /** Pins an existing agent executable while retaining normal launch preparation. */
+  agentCommand?: string
   launchPreferences?: AgentLaunchPreferences
   terminalKittyKeyboardProtocol?: boolean
   terminalColorQueryReplies?: TerminalOscColorQueryReplyColors

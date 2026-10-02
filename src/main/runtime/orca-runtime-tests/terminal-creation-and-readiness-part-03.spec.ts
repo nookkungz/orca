@@ -7,6 +7,8 @@ import {
   homedir,
   ipcMain,
   join,
+  listWorktrees,
+  listWorktreesStrict,
   markCodexProjectTrustedMock,
   mkdtemp,
   randomUUID,
@@ -29,6 +31,21 @@ import {
 } from '../orca-runtime-test-fixtures.spec'
 
 describe('OrcaRuntimeService', () => {
+  it('preserves the requested workspace key when WSL Git changes path separators', async () => {
+    const path = 'C:\\งาน team\\repo'
+    const worktrees = [{ path, head: 'abc', branch: 'main', isBare: false, isMainWorktree: true }]
+    vi.mocked(listWorktrees).mockResolvedValue(worktrees)
+    vi.mocked(listWorktreesStrict).mockResolvedValue(worktrees)
+    const runtime = new OrcaRuntimeService(store)
+    const id = `${TEST_REPO_ID}::C:/งาน team/repo`
+
+    await expect(runtime.showTerminalWorkspaceLaunchScope(`id:${id}`)).resolves.toMatchObject({
+      id,
+      path,
+      connectionId: null
+    })
+  })
+
   it('does not use the local Windows shell setting for remote Windows bare agent creates', async () => {
     const remoteRepo = {
       id: TEST_REPO_ID,

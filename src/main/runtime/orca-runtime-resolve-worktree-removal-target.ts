@@ -217,7 +217,12 @@ export class OrcaRuntimeWithResolveWorktreeRemovalTarget extends OrcaRuntimeWith
     const startupPlan = buildAgentStartupPlan({
       ...resolveAgentStartupPlanInputs({
         agent,
-        settings,
+        settings: opts.agentCommand
+          ? {
+              ...settings,
+              agentCmdOverrides: { ...settings.agentCmdOverrides, [agent]: opts.agentCommand }
+            }
+          : settings,
         platform,
         isRemote,
         ...(opts.agentArgs !== undefined ? { agentArgs: opts.agentArgs } : {}),

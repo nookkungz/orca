@@ -41,6 +41,25 @@ function createTimelineMeasure(timeline: (frame: number) => TerminalStartupGridD
 }
 
 describe('waitForStableStartupGrid', () => {
+  it('settles a hidden window when animation frames never arrive', () => {
+    vi.useFakeTimers()
+    try {
+      const scheduler = createFrameScheduler()
+      const onSettled = vi.fn()
+      waitForStableStartupGrid({
+        isAlive: () => true,
+        measure: () => ({ cols: 120, rows: 40 }),
+        onSettled,
+        requestFrame: scheduler.requestFrame,
+        cancelFrame: scheduler.cancelFrame
+      })
+      vi.advanceTimersByTime(2000)
+      expect(onSettled).toHaveBeenCalledExactlyOnceWith({ cols: 120, rows: 40 })
+      expect(scheduler.pending()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
   it('holds until the cap when the first measured grid stays stable', () => {
     const scheduler = createFrameScheduler()
     const onSettled = vi.fn()

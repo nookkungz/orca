@@ -7,12 +7,20 @@ import { makePaneKey, parsePaneKey } from '../../shared/stable-pane-id'
 import { recordPtySurface, spawnSurfaceClaimSequence } from './pty-recorded-surface-topology'
 import { randomUUID } from 'node:crypto'
 import { REJECTED_SPLIT_PTY_STOP_TIMEOUT_MS, ownerSurfacing } from './orca-runtime-core'
+import type { TerminalCreateOptions } from './runtime-terminal-contracts'
+import { toWindowsWslUncPath } from '../../shared/wsl-paths'
+import { runtimeWorktreeIdsEqual } from './runtime-worktree-path-identity'
 
 export class OrcaRuntimeWithSplitPtyBackedTerminal extends OrcaRuntimeWithSplitTerminal {
   protected async splitPtyBackedTerminal(
     pty: RuntimePtyWorktreeRecord,
-    opts: {
+    opts: Pick<
+      TerminalCreateOptions,
+      'startupAgent' | 'launchPreferences' | 'agentArgs' | 'agentCommand' | 'cwd' | 'title'
+    > & {
+      codexTeam?: { codexHome: string | null; wslDistro: string | null }
       direction?: 'horizontal' | 'vertical'
+      placement?: 'before' | 'after'
       command?: string
       env?: Record<string, string>
       envToDelete?: string[]
@@ -35,9 +43,12 @@ export class OrcaRuntimeWithSplitPtyBackedTerminal extends OrcaRuntimeWithSplitT
       throw new Error('terminal_handle_stale')
     }
     const direction = opts.direction ?? 'horizontal'
-    const workspace = await this.resolveTerminalWorkspaceLaunchScope(`id:${pty.worktreeId}`)
+    const resolvedWorkspace = await this.resolveTerminalWorkspaceLaunchScope(`id:${pty.worktreeId}`)
+    if (!runtimeWorktreeIdsEqual(resolvedWorkspace.id, pty.worktreeId)) {
+      throw new Error('terminal_workspace_changed')
+    }
     const sourceAuthority = this.resolveTerminalSplitSourceAuthority(
-      workspace.id,
+      pty.worktreeId,
       parentTabId,
       parsedPaneKey.leafId,
       pty.ptyId
@@ -45,18 +56,52 @@ export class OrcaRuntimeWithSplitPtyBackedTerminal extends OrcaRuntimeWithSplitT
     if (!sourceAuthority) {
       throw new Error('terminal_split_source_not_found')
     }
+    // WSL Git and PTY inventory can change slash spelling; preserve the existing session key.
+    const workspace = {
+      ...resolvedWorkspace,
+      id:
+        sourceAuthority.persistedWorktreeId ??
+        (sourceAuthority.rendererMounted ? this.tabs.get(parentTabId)?.worktreeId : null) ??
+        pty.worktreeId
+    }
+    const launch = opts.startupAgent
+      ? await this.resolveAgentTerminalCreateOptions(workspace, {
+          startupAgent: opts.startupAgent,
+          launchPreferences: opts.launchPreferences,
+          agentArgs: opts.agentArgs,
+          agentCommand: opts.agentCommand,
+          cwd: opts.cwd
+        })
+      : opts
     const sourceIncarnationId =
       sourceAuthority.liveIncarnationId ?? sourceAuthority.persistedIncarnationId
     const leafId = randomUUID()
     const preAllocatedHandle = this.createPreAllocatedTerminalHandle()
     const paneKey = makePaneKey(parentTabId, leafId)
+    const launchToken = launch.launchConfig ? randomUUID() : undefined
+    const env = {
+      ...launch.env,
+      ...(launchToken ? { ORCA_AGENT_LAUNCH_TOKEN: launchToken } : {}),
+      ...(opts.codexTeam
+        ? {
+            ORCA_CODEX_TEAM_HOME:
+              opts.codexTeam.wslDistro && opts.codexTeam.codexHome
+                ? toWindowsWslUncPath(opts.codexTeam.codexHome, opts.codexTeam.wslDistro)
+                : (opts.codexTeam.codexHome ?? ''),
+            ORCA_CODEX_TEAM_DISTRO: opts.codexTeam.wslDistro ?? ''
+          }
+        : {})
+    }
+    const livenessAtStart = this.ptyLivenessObservationSequence
     const result = await this.ptyController.spawn({
       cols: 120,
       rows: 40,
-      cwd: workspace.path,
-      command: opts.command,
+      cwd: launch.cwd ?? workspace.path,
+      command: launch.command,
+      launchAgent: launch.launchAgent,
+      startupCommandDelivery: launch.startupCommandDelivery,
       commandDelivery: 'provider',
-      env: this.buildTerminalWorkspaceEnv(workspace, opts.env ?? {}, paneKey, parentTabId),
+      env: this.buildTerminalWorkspaceEnv(workspace, env, paneKey, parentTabId),
       envToDelete: opts.envToDelete,
       connectionId: workspace.connectionId,
       worktreeId: workspace.id,
@@ -83,6 +128,7 @@ export class OrcaRuntimeWithSplitPtyBackedTerminal extends OrcaRuntimeWithSplitT
           }
         : {})
     })
+    this.markPtyLivenessLive(result.id, livenessAtStart)
     this.registerPreAllocatedHandleForPty(result.id, preAllocatedHandle)
     if (result.wslDistro) {
       this.preparePtyExecutionContext(result.id, result.wslDistro)
@@ -90,6 +136,16 @@ export class OrcaRuntimeWithSplitPtyBackedTerminal extends OrcaRuntimeWithSplitT
     this.registerPty(result.id, workspace.id, workspace.connectionId)
     const createdPty = this.getOrCreatePtyWorktreeRecord(result.id)
     if (createdPty) {
+      createdPty.launchConfig = launch.launchConfig ?? null
+      createdPty.launchToken = launchToken ?? null
+      createdPty.launchIncarnationId = launchToken ? createdPty.incarnationId : null
+      createdPty.launchAgent = launch.launchAgent ?? null
+      if (opts.title) {
+        const observedAt = this.nextTitleObservationSequence()
+        createdPty.title = opts.title
+        createdPty.titleUpdatedAt = observedAt
+        this.setPtyManagementTitleFromObservedTitle(createdPty, opts.title, observedAt)
+      }
       recordPtySurface(
         createdPty,
         parentTabId,
@@ -106,13 +162,16 @@ export class OrcaRuntimeWithSplitPtyBackedTerminal extends OrcaRuntimeWithSplitT
     const revealSplit = async (): Promise<void> => {
       await this.notifier?.revealTerminalSession?.(workspace.id, {
         ptyId: result.id,
-        title: null,
+        title: opts.title ?? null,
+        launchConfig: launch.launchConfig,
+        launchAgent: launch.launchAgent,
         activate: opts.activate !== false,
         ...ownerSurfacing(opts.surfaceOwner !== false),
         tabId: parentTabId,
         leafId,
         splitFromLeafId: parsedPaneKey.leafId,
         splitDirection: direction,
+        splitPlacement: opts.placement,
         splitTelemetrySource: opts.telemetrySource
       })
     }
@@ -149,7 +208,8 @@ export class OrcaRuntimeWithSplitPtyBackedTerminal extends OrcaRuntimeWithSplitT
           leafId,
           ptyId: createdPty.ptyId,
           splitFromLeafId: parsedPaneKey.leafId,
-          direction
+          direction,
+          placement: opts.placement
         })
         if (sourceAuthority.persisted && !persisted) {
           throw new Error('workspace_session_unavailable')
@@ -157,9 +217,9 @@ export class OrcaRuntimeWithSplitPtyBackedTerminal extends OrcaRuntimeWithSplitT
         this.publishPtyBackedMobileSessionTerminal(workspace.id, createdPty, {
           tabId: parentTabId,
           leafId,
-          title: null,
+          title: opts.title ?? null,
           activate: opts.activate !== false,
-          split: { splitFromLeafId: parsedPaneKey.leafId, direction }
+          split: { splitFromLeafId: parsedPaneKey.leafId, direction, placement: opts.placement }
         })
       }
     } catch (error) {

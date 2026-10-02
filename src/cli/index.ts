@@ -79,8 +79,8 @@ export async function main(
     await runAgentTeamsTmuxShim(argv.slice(1))
     return
   }
-  if (argv[0] === 'claude-teams') {
-    await runClaudeTeams(argv.slice(1), cwd)
+  if (argv[0] === 'claude-teams' || argv[0] === 'codex-team') {
+    await runClaudeTeams(argv.slice(1), cwd, argv[0])
     return
   }
   const parsed = normalizeCommandPositionals(
@@ -188,12 +188,16 @@ export async function main(
   }
 }
 
-async function runClaudeTeams(argv: string[], cwd: string): Promise<void> {
+async function runClaudeTeams(
+  argv: string[],
+  cwd: string,
+  command = 'claude-teams'
+): Promise<void> {
   try {
     // Why: everything after `orca claude-teams` belongs to Claude Code, not
     // Orca's own flag parser, so new Claude flags work without Orca changes.
     const client = new (await loadRuntimeClientClass())(undefined, undefined, null, null)
-    await dispatch(['claude-teams'], {
+    await dispatch([command], {
       flags: new Map(),
       client,
       cwd,
@@ -201,7 +205,7 @@ async function runClaudeTeams(argv: string[], cwd: string): Promise<void> {
       rawArgs: argv
     })
   } catch (error) {
-    reportCliError(error, false, { commandPath: ['claude-teams'] })
+    reportCliError(error, false, { commandPath: [command] })
     process.exitCode = 1
   }
 }

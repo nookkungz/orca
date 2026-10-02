@@ -25,6 +25,9 @@ import { tearDownFailedWorkerStart } from './failed-worker-start-teardown'
 import { requireWorkerAuthority, type WorkerEffect } from './worker-topology'
 import { prepareLocalWorkerStart } from './worker-start-validation'
 import { deliverAndSettleWorkerStartReadiness } from './worker-start-readiness-settlement'
+import { readCodexTeamPolicy } from '../../../../../../shared/codex-team'
+import { prepareCodexTeamWorker } from './codex-team-worker'
+import { bindCodexTeamMember, saveCodexTeam } from '../../../../orchestration/codex-team-members'
 
 type WorkerStartMutation = {
   callerFingerprint: string
@@ -44,10 +47,32 @@ export async function startLocalWorker(args: {
   /** Settings-driven; the executing host still gets to refuse below. */
   mode: WorkerStartModeReceipt
 }): Promise<unknown> {
-  const { params, runtime, db, run, coordinatorPane, existingTask, orchestrationMutation } = args
+  const { runtime, db, run, coordinatorPane, existingTask, orchestrationMutation } = args
+  const codexTeam = await prepareCodexTeamWorker(runtime, db, run.id, args.params)
+  const params = codexTeam
+    ? {
+        ...args.params,
+        agent: codexTeam.terminal ? undefined : ('codex' as const),
+        model: codexTeam.terminal ? undefined : codexTeam.model,
+        effort: codexTeam.terminal ? undefined : codexTeam.effort,
+        terminal: codexTeam.terminal
+      }
+    : args.params
   const requestedWorktree = params.worktree ?? 'current'
   const createsWorktree = requestedWorktree === 'new-child' || requestedWorktree === 'new-top-level'
-  const { agent, launch } = prepareLocalWorkerStart({ params, createsWorktree, runtime })
+  const { agent, launch } = prepareLocalWorkerStart({
+    params,
+    createsWorktree,
+    runtime,
+    validatedCodexCatalog: Boolean(codexTeam)
+  })
+
+  if (codexTeam) {
+    launch.receipt = {
+      requested: { agent: 'codex', model: codexTeam.model, effort: codexTeam.effort },
+      effective: null
+    }
+  }
 
   const coordinatorWorktreeId = await resolveDispatchCallerWorktreeId(runtime, params.from)
   const creationWorktree = createsWorktree
@@ -75,6 +100,14 @@ export async function startLocalWorker(args: {
     })
   }
   let mode = await resolveWorkerStartModeOnHost(runtime, args.mode, resolvedWorktree?.id, agent)
+  if (codexTeam) {
+    mode = {
+      ...mode,
+      mode: 'terminal',
+      reason: 'tui_launch_command',
+      detail: 'Codex Team members use terminal panes.'
+    }
+  }
 
   const startOptions = {
     worktree: requestedWorktree,
@@ -86,6 +119,8 @@ export async function startLocalWorker(args: {
     terminal: params.terminal ?? null,
     agent: agent ?? null,
     launch: launch.receipt,
+    selectionReason: codexTeam?.reason ?? params.selectionReason ?? null,
+    ...(codexTeam?.handoff ? { handoff: codexTeam.handoff } : {}),
     timeoutMs: params.timeoutMs ?? 60_000,
     setup: createsWorktree ? (params.setup ?? 'run') : 'not_applicable',
     setupSource: createsWorktree
@@ -110,6 +145,7 @@ export async function startLocalWorker(args: {
     taskCreatedByRunGeneration: run.consumer_generation,
     retryOf: params.retryOf,
     startOptions,
+    codexTeam,
     runtimeEpoch: runtime.getRuntimeId(),
     mutationReceipt: orchestrationMutation
   })
@@ -158,6 +194,14 @@ export async function startLocalWorker(args: {
       effects
     }
     recordCreatedWorkerTerminalCustody(runtime, setupStage, !params.terminal && !structuredSession)
+    if (codexTeam) {
+      const authority = requireWorkerAuthority(runtime, terminalHandle)
+      bindCodexTeamMember(db, run.id, started.dispatch.id, {
+        handle: terminalHandle,
+        paneKey: authority.paneKey,
+        incarnation: authority.processIncarnation
+      })
+    }
     if (persistGatedSetupSpawnFailure(setupStage)) {
       failedStage = 'setup_start'
       throw new Error('Setup terminal failed to start before the gated agent launch.')
@@ -209,7 +253,9 @@ export async function startLocalWorker(args: {
       runtime,
       db,
       run,
-      task,
+      task: codexTeam?.handoff
+        ? { ...task, spec: `${task.spec}\n\nSession handoff:\n${codexTeam.handoff}` }
+        : task,
       dispatchId: started.dispatch.id,
       dispatchDepth: started.dispatch.depth,
       structuredSession,
@@ -230,6 +276,12 @@ export async function startLocalWorker(args: {
       }
     })
   } catch (error) {
+    const team = readCodexTeamPolicy(db.getRun(run.id)?.team_policy)
+    const member = team?.members.find((entry) => entry.dispatchId === started.dispatch.id)
+    if (team && member) {
+      member.state = 'recovery'
+      saveCodexTeam(db, run.id, team)
+    }
     await tearDownFailedWorkerStart({
       runtime,
       structuredSession: placed?.structuredSession ?? null,

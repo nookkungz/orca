@@ -18,6 +18,7 @@ const TUI_AGENT_KIND_BY_AGENT = {
   'claude-agent-teams': 'claude-agent-teams',
   openclaude: 'openclaude',
   codex: 'codex',
+  'codex-team': 'codex-team',
   autohand: 'autohand',
   opencode: 'opencode',
   opencode2: 'opencode2',

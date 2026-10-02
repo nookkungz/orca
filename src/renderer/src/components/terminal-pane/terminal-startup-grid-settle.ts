@@ -65,11 +65,25 @@ export function waitForStableStartupGrid(
       return
     }
     cancelled = true
+    clearTimeout(deadline)
+    if (pendingFrame !== null) {
+      options.cancelFrame(pendingFrame)
+    }
     pendingFrame = null
     if (options.isAlive()) {
       options.onSettled(dimensions)
     }
   }
+
+  // Hidden Windows windows can stop animation frames entirely. Keep the existing
+  // two-second layout budget bounded by elapsed time as well as frame count.
+  const deadline = setTimeout(() => {
+    if (cancelled || !options.isAlive()) {
+      return
+    }
+    const measured = options.measure()
+    settle(usableDimensions(measured) ? measured : (latestUsable ?? latestReadinessWaitUsable))
+  }, 2000)
 
   const tick = (): void => {
     pendingFrame = null
@@ -130,6 +144,7 @@ export function waitForStableStartupGrid(
   return {
     cancel: () => {
       cancelled = true
+      clearTimeout(deadline)
       if (pendingFrame !== null) {
         options.cancelFrame(pendingFrame)
         pendingFrame = null

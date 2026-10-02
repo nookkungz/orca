@@ -121,6 +121,11 @@ import {
   SaveImageAsTempFile,
   StartImageUpload
 } from './clipboard-params'
+import {
+  CodexTeamModelsParams,
+  CodexTeamPrepareLaunchParams,
+  CodexTeamShowParams
+} from './codex-team-params'
 import { ComputerCapabilitiesParams, ComputerPermissionsStatusParams } from './computer-params'
 import {
   Click,
@@ -708,6 +713,9 @@ export const RPC_PARAMS_BY_METHOD = {
   'clipboard.commitImageUpload': CommitImageUpload,
   'clipboard.saveImageAsTempFile': SaveImageAsTempFile,
   'clipboard.startImageUpload': StartImageUpload,
+  'codexTeam.models': CodexTeamModelsParams,
+  'codexTeam.prepareLaunch': CodexTeamPrepareLaunchParams,
+  'codexTeam.show': CodexTeamShowParams,
   'computer.capabilities': ComputerCapabilitiesParams,
   'computer.click': Click,
   'computer.drag': DragOfComputerSchemasParams,

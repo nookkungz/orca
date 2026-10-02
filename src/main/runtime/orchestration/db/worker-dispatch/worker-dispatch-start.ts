@@ -8,6 +8,7 @@ import { insertStartingDispatchContextRow } from '../dispatch-row-writer'
 import { recordedCreatorIdentity, type DispatchCreator } from '../dispatch-depth'
 import { transitionLifecycleWithDb } from '../lifecycle-transition'
 import { taskNotFoundError, taskNotStartableError } from '../../task-dispatch-refusal'
+import { reserveCodexTeamMember, type CodexTeamWorkerSelection } from '../../codex-team-members'
 
 export function createStartingWorkerDispatch(
   this: OrchestrationDb,
@@ -23,6 +24,7 @@ export function createStartingWorkerDispatch(
     taskDeps?: string[]
     taskParentId?: string
     startOptions: unknown
+    codexTeam?: CodexTeamWorkerSelection
     launchTokenHash?: string
     retryOf?: string
     runtimeEpoch?: string
@@ -120,6 +122,7 @@ export function createStartingWorkerDispatch(
     }
 
     const id = generateId('ctx')
+    reserveCodexTeamMember(this, task.run_id, id, params.codexTeam)
     const creatorDispatchId = this.resolveCreatorDispatchId(params.creator)
     if (params.mutationReceipt) {
       this.db

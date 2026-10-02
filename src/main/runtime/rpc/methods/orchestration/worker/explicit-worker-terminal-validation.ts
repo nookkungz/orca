@@ -1,3 +1,4 @@
+import { runtimeWorktreeIdsEqual } from '../../../../runtime-worktree-path-identity'
 import type { OrcaRuntimeService } from '../../../../orca-runtime'
 import { OrchestrationError } from '../../../../orchestration/orchestration-error'
 import { isStructuredWorkerHandle } from '../../../../structured-worker-identity'
@@ -34,7 +35,10 @@ export async function assertExplicitWorkerTerminalUsable(args: {
       `Terminal ${terminal} is this coordinator's own terminal. Pass --terminal for a different agent pane, or omit it so worker-start creates one.`
     )
   }
-  if (explicitTerminal.worktreeId !== resolvedWorktreeId) {
+  if (
+    !resolvedWorktreeId ||
+    !runtimeWorktreeIdsEqual(explicitTerminal.worktreeId, resolvedWorktreeId)
+  ) {
     throw new OrchestrationError(
       'terminal_worktree_mismatch',
       `Terminal ${terminal} does not belong to worktree ${resolvedWorktreeId}.`

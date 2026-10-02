@@ -49,7 +49,10 @@ describe('orchestration worker release liveness verdict', () => {
       release_state: 'unknown',
       release_error: releaseError
     }))
+    // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: this fixture implements the database methods reached by release with an already captured archive.
     const db = {
+      getDispatchContextById: vi.fn(() => ({ run_id: 'run-existing' })),
+      getRun: vi.fn(() => ({ team_policy: null })),
       getWorkerDispatch: vi.fn(() => ({
         agent_terminal_handle: 'term_worker',
         created_at: '2026-08-16T00:00:00.000Z'
@@ -111,7 +114,10 @@ describe('orchestration worker release liveness verdict', () => {
         }),
         notifyMessageArrived: vi.fn()
       } as unknown as OrcaRuntimeService
+      // oxlint-disable-next-line typescript/consistent-type-assertions -- SAFETY: this fixture implements the database methods reached by release with an already captured archive.
       const db = {
+        getDispatchContextById: vi.fn(() => ({ run_id: 'run-existing' })),
+        getRun: vi.fn(() => ({ team_policy: null })),
         getWorkerDispatch: vi.fn(() => ({
           agent_terminal_handle: 'term_worker',
           created_at: '2026-08-16T00:00:00.000Z'

@@ -53,6 +53,7 @@ export type SplitTerminalPaneDetail = {
   direction: 'horizontal' | 'vertical'
   command?: string
   sourceLeafId?: string
+  placement?: 'before' | 'after'
   sourcePtyId?: string
   telemetrySource?: TerminalPaneSplitSource
   newLeafId?: string

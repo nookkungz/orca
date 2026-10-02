@@ -3,6 +3,10 @@ import { UNPUBLISHED_WORKTREE_PUBLICATION_EPOCH } from '../../../shared/runtime-
 import { hostSnapshotAffirmsClientHostedPages } from './host-session-snapshot-authority'
 
 const REAL_EPOCH = 'headless:abc'
+const UNPUBLISHED_EPOCHS = [
+  UNPUBLISHED_WORKTREE_PUBLICATION_EPOCH,
+  `${UNPUBLISHED_WORKTREE_PUBLICATION_EPOCH}:client-navigation`
+]
 
 describe('reading whether a snapshot answers for client-hosted pages', () => {
   it('affirms a fully published snapshot carrying no unreconciled flag', () => {
@@ -24,24 +28,30 @@ describe('reading whether a snapshot answers for client-hosted pages', () => {
   })
 
   // Inherited from the worktree-level gate: the placeholder pair is the runtime saying "ask later".
-  it('does not affirm the unpublished-worktree placeholder frame', () => {
-    expect(
-      hostSnapshotAffirmsClientHostedPages({
-        publicationEpoch: UNPUBLISHED_WORKTREE_PUBLICATION_EPOCH,
-        snapshotVersion: 0
-      })
-    ).toBe(false)
-  })
+  it.each(UNPUBLISHED_EPOCHS)(
+    'does not affirm the unpublished-worktree placeholder %s',
+    (epoch) => {
+      expect(
+        hostSnapshotAffirmsClientHostedPages({
+          publicationEpoch: epoch,
+          snapshotVersion: 0
+        })
+      ).toBe(false)
+    }
+  )
 
-  it('does not affirm when the placeholder frame also carries the unreconciled flag', () => {
-    expect(
-      hostSnapshotAffirmsClientHostedPages({
-        publicationEpoch: UNPUBLISHED_WORKTREE_PUBLICATION_EPOCH,
-        snapshotVersion: 0,
-        clientHostedPagesUnreconciled: true
-      })
-    ).toBe(false)
-  })
+  it.each(UNPUBLISHED_EPOCHS)(
+    'does not affirm when placeholder %s also carries the unreconciled flag',
+    (epoch) => {
+      expect(
+        hostSnapshotAffirmsClientHostedPages({
+          publicationEpoch: epoch,
+          snapshotVersion: 0,
+          clientHostedPagesUnreconciled: true
+        })
+      ).toBe(false)
+    }
+  )
 
   // Only the epoch+version pair marks a synthesized frame; each half alone is a legitimate state.
   it('affirms a real epoch at version zero', () => {
@@ -50,11 +60,23 @@ describe('reading whether a snapshot answers for client-hosted pages', () => {
     ).toBe(true)
   })
 
-  it('affirms the placeholder epoch once it carries a version', () => {
+  it.each(UNPUBLISHED_EPOCHS)(
+    'affirms the placeholder epoch %s once it carries a version',
+    (epoch) => {
+      expect(
+        hostSnapshotAffirmsClientHostedPages({
+          publicationEpoch: epoch,
+          snapshotVersion: 1
+        })
+      ).toBe(true)
+    }
+  )
+
+  it('affirms an unknown publication suffix at version zero', () => {
     expect(
       hostSnapshotAffirmsClientHostedPages({
-        publicationEpoch: UNPUBLISHED_WORKTREE_PUBLICATION_EPOCH,
-        snapshotVersion: 1
+        publicationEpoch: `${UNPUBLISHED_WORKTREE_PUBLICATION_EPOCH}:other`,
+        snapshotVersion: 0
       })
     ).toBe(true)
   })

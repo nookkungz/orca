@@ -8,6 +8,7 @@ export const TUI_AGENT_AUTO_PICK_ORDER = [
   'claude-agent-teams',
   'openclaude',
   'codex',
+  'codex-team',
   'grok',
   'copilot',
   'opencode2',
@@ -45,7 +46,7 @@ export const TUI_AGENT_AUTO_PICK_ORDER = [
 
 // Why: fresh installs should expose Claude Agent Teams in agent pickers; the
 // persistence migration separately preserves the old hidden default for legacy profiles.
-export const DEFAULT_DISABLED_TUI_AGENTS = [] as const satisfies readonly TuiAgent[]
+export const DEFAULT_DISABLED_TUI_AGENTS = ['codex-team'] as const satisfies readonly TuiAgent[]
 
 export function pickTuiAgent(
   preferred: TuiAgent | 'blank' | null | undefined,

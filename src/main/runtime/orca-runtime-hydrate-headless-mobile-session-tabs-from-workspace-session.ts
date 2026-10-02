@@ -201,13 +201,8 @@ export class OrcaRuntimeWithHydrateHeadlessMobileSessionTabsFromWorkspaceSession
                 tabOrder
               }
             ]
-      // Why: merging runtime tabs INTO a renderer publication must not reclass
-      // the snapshot as headless-built — the preservation predicate would then
-      // treat the renderer's own tabs as runtime-owned and resurrect tabs the
-      // renderer later closes. Keep the renderer base epoch with a merge suffix
-      // (idempotent) so ownership stays derivable from the epoch.
+      // Hydration must retain the renderer generation so its next frame stays accepted.
       const mergedIntoRendererPublication =
-        options.onlyRuntimeOwnedTerminals === true &&
         existing !== undefined &&
         !this.isHeadlessBuiltMobileSessionPublicationBase(existing.publicationEpoch)
       const nextSnapshot: RuntimeMobileSessionTabsSnapshot = {

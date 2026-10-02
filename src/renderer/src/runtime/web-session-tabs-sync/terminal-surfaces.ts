@@ -3,6 +3,7 @@ import type {
   RuntimeMobileSessionAgentTab
 } from '../../../../shared/runtime-types'
 import type { TerminalLayoutSnapshot, TerminalTab } from '../../../../shared/terminal-tab-types'
+import { toRuntimeExecutionHostId } from '../../../../shared/execution-host'
 import { defaultAgentChatLabel } from '../../../../shared/agent-session-chat-label'
 import { sanitizeTerminalLayoutPaneTitlesForLabels } from '@/lib/terminal-pane-title-sanitization'
 import { resolveTerminalLayoutRoot } from '../remote-terminal-layout-resolution'
@@ -233,6 +234,16 @@ export function shouldReplaceTerminalTab(
   nextMirroredTerminalIds: ReadonlySet<string>,
   exactProvisionalHandoffs: ReadonlySet<string>
 ): boolean {
+  const remoteEnvironmentId = tab.ptyId ? getRemoteRuntimePtyEnvironmentId(tab.ptyId) : null
+  const ownerHostId =
+    tab.executionHostId ??
+    (remoteEnvironmentId ? toRuntimeExecutionHostId(remoteEnvironmentId) : null)
+  const snapshotHostId =
+    environmentId === 'local' ? 'local' : toRuntimeExecutionHostId(environmentId)
+  // A worktree can be published by several hosts; each may replace only its own terminals.
+  if (ownerHostId && ownerHostId !== snapshotHostId) {
+    return false
+  }
   if (exactProvisionalHandoffs.has(tab.id)) {
     // Why: agent kind is not session identity; retire only the provisional tab
     // whose request or structured response identifies this exact host surface.

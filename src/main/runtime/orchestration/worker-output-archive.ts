@@ -18,6 +18,11 @@ import { captureStructuredWorkerArchive } from '../rpc/methods/orchestration-str
 import type { WorkerStructuredJournalArchive } from './structured-worker-journal-archive'
 import { structuredWorkerAgent } from '../structured-worker-authority'
 import type { StructuredWorkerIdentity } from '../structured-worker-identity'
+import { mkdir, open, unlink } from 'node:fs/promises'
+import { join } from 'node:path'
+import { randomUUID } from 'node:crypto'
+import { getAppEnvironment } from '../../../shared/app-environment'
+import { readTranscriptSlice, wslGatedStat } from '../../native-chat/wsl-transcript-fs-access'
 
 // Bound the durable copy of raw terminal output; the tail end is the evidence that matters.
 const TERMINAL_ARCHIVE_MAX_CHARS = 262_144
@@ -30,6 +35,7 @@ export type WorkerTranscriptSnapshotArchive = {
   limited: boolean
   clipping?: string[]
   warnings: string[]
+  fullTranscriptPath?: string
 }
 
 export type WorkerTerminalTailArchive = {
@@ -87,6 +93,7 @@ export async function captureWorkerOutputArchive(args: {
   dispatchId: string
   terminalHandle: string
   attachedAtMs: number
+  preserveFullTranscript?: boolean
   /** Present when the worker IS a structured session; its journal is the only output it has. */
   structuredWorker?: StructuredWorkerIdentity | null
 }): Promise<WorkerOutputArchiveCapture> {
@@ -132,9 +139,18 @@ export async function captureWorkerOutputArchive(args: {
             messages: snapshot.messages,
             limited: snapshot.limited,
             clipping: snapshot.clipping,
-            warnings: snapshot.warnings
+            warnings: snapshot.warnings,
+            ...(args.preserveFullTranscript && !remoteFilesystemProvider
+              ? { fullTranscriptPath: await preserveTranscriptFile(snapshot.filePath) }
+              : {})
           }
         }
+      }
+      if (args.preserveFullTranscript) {
+        throw new OrchestrationError(
+          'archive_failed',
+          'The team transcript could not be preserved; the member was retained.'
+        )
       }
       if (snapshot?.ok) {
         transcriptFallbackReason = snapshot.limited ? 'transcript_unreadable' : 'transcript_empty'
@@ -163,6 +179,19 @@ export async function captureWorkerOutputArchive(args: {
   // Why: an exited PTY zeroes its tail immediately, so an empty capture is a distinct receipt,
   // not silent success — worker-read must be able to say why nothing is there.
   const empty = bounded.lines.every((line) => line.trim() === '')
+  if (
+    args.preserveFullTranscript &&
+    (terminal.source !== 'stream' ||
+      terminal.truncated ||
+      terminal.limited ||
+      bounded.truncated ||
+      empty)
+  ) {
+    throw new OrchestrationError(
+      'archive_failed',
+      'The complete team history could not be preserved; the member was retained.'
+    )
+  }
   return {
     kind: 'terminal_tail',
     status: empty ? 'empty' : 'captured',
@@ -183,6 +212,52 @@ export async function captureWorkerOutputArchive(args: {
         ...(bounded.truncated || terminal.truncated ? ['terminal_buffer'] : [])
       ]
     }
+  }
+}
+
+async function preserveTranscriptFile(source: string): Promise<string> {
+  const directory = join(getAppEnvironment().getPath('userData'), 'orchestration-transcripts')
+  await mkdir(directory, { recursive: true, mode: 0o700 })
+  const target = join(directory, `${randomUUID()}.jsonl`)
+  try {
+    const before = await wslGatedStat(source, 'exact')
+    const destination = await open(target, 'wx', 0o600)
+    try {
+      for (let offset = 0; offset < before.size;) {
+        const chunk = await readTranscriptSlice(
+          source,
+          offset,
+          Math.min(1024 * 1024, before.size - offset),
+          'exact'
+        )
+        if (!chunk.length) {
+          throw new Error('The transcript ended during archival.')
+        }
+        await destination.writeFile(chunk)
+        offset += chunk.length
+      }
+      const after = await wslGatedStat(source, 'exact')
+      if (
+        before.size !== after.size ||
+        before.mtimeMs !== after.mtimeMs ||
+        before.ino !== after.ino ||
+        before.dev !== after.dev
+      ) {
+        throw new Error(
+          'The transcript changed during archival. Wait for the member to become idle.'
+        )
+      }
+      await destination.sync()
+    } finally {
+      await destination.close()
+    }
+    return target
+  } catch (error) {
+    await unlink(target).catch(() => undefined)
+    throw new OrchestrationError(
+      'archive_failed',
+      `Complete transcript preservation failed: ${String(error)}`
+    )
   }
 }
 

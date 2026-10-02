@@ -45,6 +45,9 @@ describe('shouldUseShellReadyStartupDelivery', () => {
   })
 
   it('waits for plain Codex on shells that publish the marker from the line editor', () => {
+    expect(
+      shouldUseShellReadyStartupDelivery({ command: 'orca codex-team', shellPath: '/bin/zsh' })
+    ).toBe(true)
     expect(shouldUseShellReadyStartupDelivery({ command: 'codex', shellPath: '/bin/bash' })).toBe(
       true
     )

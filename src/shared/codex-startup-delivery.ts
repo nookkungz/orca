@@ -76,7 +76,8 @@ export function hasCodexNativeDraftFlag(command: string | null | undefined): boo
 }
 
 export function isCodexStartupCommand(command: string | null | undefined): boolean {
-  return recognizeAgentProcessFromCommandLine(command)?.agent === 'codex'
+  const agent = recognizeAgentProcessFromCommandLine(command)?.agent
+  return agent === 'codex' || agent === 'codex-team'
 }
 
 export function shouldUseShellReadyStartupDelivery(args: {

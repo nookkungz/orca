@@ -65,6 +65,12 @@ export const ORCHESTRATION_DISPATCH_METHODS = [
         return { dispatch: null, injected: false, dryRun: true, preamble }
       }
 
+      if (run.team_policy) {
+        throw new Error(
+          'For Codex Team, create a new Dispatch with worker-start --task <task> --terminal <member>. This validates idle state and preserves member ownership.'
+        )
+      }
+
       if (!params.to) {
         throw new Error('Missing --to')
       }

@@ -31,6 +31,7 @@ export function buildHeadlessTerminalSplitLayout(
     ptyId: string
     splitFromLeafId: string
     direction: 'horizontal' | 'vertical'
+    placement?: 'before' | 'after'
   }
 ): TerminalLayoutSnapshot {
   const removeProvisionalLeaf = (node: TerminalPaneLayoutNode): TerminalPaneLayoutNode | null => {
@@ -61,8 +62,8 @@ export function buildHeadlessTerminalSplitLayout(
       return {
         type: 'split',
         direction: args.direction,
-        first: node,
-        second: { type: 'leaf', leafId: args.leafId }
+        first: args.placement === 'before' ? { type: 'leaf', leafId: args.leafId } : node,
+        second: args.placement === 'before' ? node : { type: 'leaf', leafId: args.leafId }
       }
     }
     return { ...node, first: insertSplit(node.first), second: insertSplit(node.second) }

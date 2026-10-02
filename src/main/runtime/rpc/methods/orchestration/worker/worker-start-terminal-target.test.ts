@@ -37,6 +37,22 @@ describe('worker-start --terminal target', () => {
     ).rejects.toMatchObject({ code: 'terminal_is_coordinator' })
   })
 
+  it('accepts the same Windows workspace when Git changes separators', async () => {
+    const terminal = await harness.runtime.showTerminal('term_worker')
+    const workspace = await harness.runtime.showManagedTerminalWorkspace('current')
+    vi.spyOn(harness.runtime, 'showTerminal').mockImplementation(async (handle) => ({
+      ...terminal,
+      handle,
+      worktreeId: 'repo::C:/งาน team'
+    }))
+    vi.spyOn(harness.runtime, 'showManagedTerminalWorkspace').mockResolvedValue({
+      ...workspace,
+      id: 'repo::C:\\งาน team'
+    })
+    const started = await harness.startWorker({ terminal: 'term_worker' })
+    expect(started.dispatchId).toEqual(expect.any(String))
+  })
+
   it('still accepts a separate agent terminal in the same worktree', async () => {
     const started = await harness.startWorker({ terminal: 'term_worker' })
     expect(started.dispatchId).toEqual(expect.any(String))

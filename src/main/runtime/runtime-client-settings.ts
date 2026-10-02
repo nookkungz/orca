@@ -23,6 +23,7 @@ export type RuntimeClientSettings = Pick<
   GlobalSettings,
   | 'defaultTuiAgent'
   | 'disabledTuiAgents'
+  | 'codexTeam'
   | 'agentCmdOverrides'
   | 'agentDefaultArgs'
   | 'agentDefaultEnv'
@@ -60,6 +61,7 @@ export type RuntimeClientSettingsUpdate = Pick<
   | 'agentStatusHooksEnabled'
   | 'defaultTuiAgent'
   | 'disabledTuiAgents'
+  | 'codexTeam'
   | 'agentDefaultArgs'
   | 'agentDefaultEnv'
   | 'defaultTaskSource'
@@ -94,6 +96,7 @@ export class RuntimeClientSettingsController {
     return {
       defaultTuiAgent: settings.defaultTuiAgent ?? null,
       disabledTuiAgents: settings.disabledTuiAgents ?? [],
+      codexTeam: settings.codexTeam,
       agentCmdOverrides: settings.agentCmdOverrides ?? {},
       agentDefaultArgs: settings.agentDefaultArgs ?? {},
       agentDefaultEnv: settings.agentDefaultEnv ?? {},

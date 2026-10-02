@@ -133,6 +133,12 @@ export function prepareLoadedProfileSettings(
     markNeedsSave()
   }
   const migratedDisabledTuiAgents = normalizeDisabledTuiAgents(parsed.settings?.disabledTuiAgents)
+  if (!parsed.settings?.codexTeam) {
+    if (!migratedDisabledTuiAgents.includes('codex-team')) {
+      migratedDisabledTuiAgents.push('codex-team')
+    }
+    markNeedsSave()
+  }
   const migratedAgentYoloDefaults = migrateAgentYoloDefaults(parsed.settings)
   if (
     parsed.settings?.agentYoloDefaultsMigrated !== true ||

@@ -29,6 +29,8 @@ export const WorkerStartParams = z
     agent: OptionalString,
     model: OptionalWorkerLaunchPreference,
     effort: OptionalWorkerLaunchPreference,
+    selectionReason: z.string().trim().min(1).max(4000).optional(),
+    replaceWorker: OptionalString,
     retryOf: OptionalString,
     timeoutMs: OptionalFiniteNumber,
     devMode: z.boolean().optional()

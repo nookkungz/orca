@@ -46,6 +46,7 @@ import {
 import { AgentAvailabilityControl, type AgentCatalogRowProps } from './AgentCatalogRow'
 import { AgentDefaultSetting } from './AgentDefaultSetting'
 import { AgentDetectionCatalog } from './AgentDetectionCatalog'
+import { CodexTeamSettings } from './CodexTeamSettings'
 
 export {
   buildAgentAvailabilitySettingsUpdate,
@@ -226,9 +227,19 @@ export function AgentsPane({
         }
       : () => {},
     onSaveArgs: (value) =>
-      updateSettings({ agentDefaultArgs: { ...agentDefaultArgs, [agent.id]: value } }),
+      updateSettings({
+        agentDefaultArgs: {
+          ...agentDefaultArgs,
+          [agent.id === 'codex-team' ? 'codex' : agent.id]: value
+        }
+      }),
     onSaveEnv: (value) =>
-      updateSettings({ agentDefaultEnv: { ...agentDefaultEnv, [agent.id]: value } }),
+      updateSettings({
+        agentDefaultEnv: {
+          ...agentDefaultEnv,
+          [agent.id === 'codex-team' ? 'codex' : agent.id]: value
+        }
+      }),
     sessionSourceHome:
       isDetected && agent.id === 'codex'
         ? buildCodexSessionSourceHomeControl(settings, updateSettings)
@@ -277,6 +288,7 @@ export function AgentsPane({
         onRefresh={() => void refreshTargetAgents()}
         getRowProps={getRowProps}
       />
+      <CodexTeamSettings settings={settings} updateSettings={updateSettings} />
     </div>
   )
 }

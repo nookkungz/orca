@@ -4,6 +4,7 @@ import { formatCliStatus, formatStatus, printResult } from '../format'
 import { RuntimeClientError, serveOrcaApp } from '../runtime-client'
 import { stripElectronRunAsNode } from '../runtime/launch'
 import { getServeOptionValidationError } from '../../shared/serve-option-validation'
+import { runCodexTeam } from './codex-team'
 
 function envRecord(): Record<string, string> {
   // Why: the `orca` launcher runs Orca's Electron binary as Node, so this CLI
@@ -59,6 +60,7 @@ function getOptionalServePort(flags: Map<string, string | boolean>): string | nu
 }
 
 export const CORE_HANDLERS: Record<string, CommandHandler> = {
+  'codex-team': runCodexTeam,
   'claude-teams': async ({ client, rawArgs }) => {
     if (process.platform === 'win32') {
       throw new RuntimeClientError(

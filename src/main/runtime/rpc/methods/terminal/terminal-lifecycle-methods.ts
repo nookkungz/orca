@@ -18,8 +18,10 @@ import {
   TerminalWait
 } from './unary-schemas'
 import { TerminalResizeForClient } from './stream-schemas'
+import { CODEX_TEAM_METHODS } from './codex-team-methods'
 
 export const TERMINAL_LIFECYCLE_METHODS = [
+  ...CODEX_TEAM_METHODS,
   defineMethod({
     name: 'terminal.wait',
     params: TerminalWait,

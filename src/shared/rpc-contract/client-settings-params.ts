@@ -1,3 +1,4 @@
+import { CodexTeamSettingsSchema } from '../codex-team'
 import { z } from 'zod'
 import { isTaskProvider } from '../task-providers'
 import type { TaskProvider } from '../task-providers'
@@ -81,6 +82,7 @@ export const GitHubProjectSettings = z
 
 export const SettingsUpdate = z
   .object({
+    codexTeam: CodexTeamSettingsSchema.optional(),
     worktreeVisibilityDefaults: WorktreeVisibilityDefaultsUpdate.optional(),
     defaultTuiAgent: z
       .unknown()

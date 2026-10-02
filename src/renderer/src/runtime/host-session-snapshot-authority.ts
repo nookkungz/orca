@@ -23,7 +23,9 @@ type ClientHostedPagePublication = SnapshotPublication & {
  */
 export function hostSnapshotAffirmsWorktreeContents(snapshot: SnapshotPublication): boolean {
   return !(
-    snapshot.publicationEpoch === UNPUBLISHED_WORKTREE_PUBLICATION_EPOCH &&
+    (snapshot.publicationEpoch === UNPUBLISHED_WORKTREE_PUBLICATION_EPOCH ||
+      snapshot.publicationEpoch ===
+        `${UNPUBLISHED_WORKTREE_PUBLICATION_EPOCH}:client-navigation`) &&
     snapshot.snapshotVersion === 0
   )
 }

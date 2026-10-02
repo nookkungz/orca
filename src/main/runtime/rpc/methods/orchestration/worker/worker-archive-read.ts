@@ -21,6 +21,8 @@ import {
 } from '../../../../orchestration/worker-output-cursor'
 import type { WorkerStructuredJournalArchive } from '../../../../orchestration/structured-worker-journal-archive'
 import { readArchivedStructuredJournal } from '../../orchestration-structured-worker-lifecycle'
+import { nativeChatLineDecoderForAgent } from '../../../../../native-chat/transcript-tail-reader'
+import { readForwardLocalWorkerTranscriptPage } from '../../../../orchestration/worker-transcript-local-read'
 
 const ARCHIVED_TERMINAL_PAGE_LINES = 2_000
 
@@ -30,6 +32,7 @@ const ARCHIVED_TERMINAL_PAGE_LINES = 2_000
 export async function readArchivedWorkerOutput(args: {
   db: OrchestrationDb
   dispatchId: string
+  archiveDispatchId?: string
   workerState: string
   resource: Pick<WorkerTerminalResourceRow, 'id' | 'terminal_handle' | 'release_state'>
   source?: OrchestrationWorkerReadSource
@@ -38,7 +41,7 @@ export async function readArchivedWorkerOutput(args: {
   /** Process evidence is separate from the fact that output was archived. */
   liveness?: PtyLivenessVerdict['status']
 }): Promise<OrchestrationWorkerReadResult> {
-  const archive = args.db.getWorkerTerminalArchive(args.dispatchId)
+  const archive = args.db.getWorkerTerminalArchive(args.archiveDispatchId ?? args.dispatchId)
   if (!archive) {
     throw new OrchestrationError(
       'archive_unavailable',
@@ -85,11 +88,11 @@ export async function readArchivedWorkerOutput(args: {
   return readArchivedTerminalTail(args, archive)
 }
 
-function readFrozenTranscript(
+async function readFrozenTranscript(
   args: Parameters<typeof readArchivedWorkerOutput>[0],
   archive: WorkerTerminalArchiveRow,
   snapshot: WorkerTranscriptSnapshotArchive
-): OrchestrationWorkerReadResult {
+): Promise<OrchestrationWorkerReadResult> {
   const cursor = decodeWorkerOutputCursor(args.cursor, args.dispatchId)
   const sourceIdentity = createWorkerOutputSourceIdentity([
     'released-transcript-snapshot',
@@ -99,6 +102,53 @@ function readFrozenTranscript(
   ])
   if (cursor && (cursor.source !== 'transcript' || cursor.sourceIdentity !== sourceIdentity)) {
     throw sourceChanged()
+  }
+  if (snapshot.fullTranscriptPath) {
+    const decode = nativeChatLineDecoderForAgent(snapshot.agent)
+    if (!decode) {
+      throw new OrchestrationError(
+        'archive_unavailable',
+        'The archived transcript decoder is unavailable.'
+      )
+    }
+    const page = await readForwardLocalWorkerTranscriptPage(
+      snapshot.fullTranscriptPath,
+      cursor?.position ?? 0,
+      clampWorkerTranscriptLimit(args.limit),
+      decode
+    )
+    if (!page.ok) {
+      throw new OrchestrationError(
+        'archive_unavailable',
+        'The complete archived transcript could not be read.'
+      )
+    }
+    const nextCursor = encodeWorkerOutputCursor(
+      args.dispatchId,
+      'transcript',
+      sourceIdentity,
+      page.nextOffset
+    )
+    return {
+      dispatchId: args.dispatchId,
+      source: 'transcript',
+      sourceIdentity,
+      provider: snapshot.agent,
+      transcript: {
+        messages: page.messages,
+        nextCursor,
+        limited: page.limited,
+        returnedMessageCount: page.messages.length
+      },
+      cursor: nextCursor,
+      status: archivedStatus(args),
+      fallbackReason: null,
+      sourceExact: true,
+      contentComplete: !page.limited && page.warnings.length === 0,
+      clipping: page.clipping,
+      warnings: page.warnings,
+      archived: true
+    }
   }
   const start = Math.min(cursor?.position ?? 0, snapshot.messages.length)
   const end = Math.min(start + clampWorkerTranscriptLimit(args.limit), snapshot.messages.length)

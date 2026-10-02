@@ -13,7 +13,7 @@ import { getRegisteredSshState } from '../ssh/ssh-target-registry'
 import { resolveWorktreeLaunchHost } from './worktree-launch-host-repo'
 import { folderWorkspaceKey, parseWorkspaceKey } from '../../shared/workspace-scope'
 import type { FolderWorkspace } from '../../shared/folder-workspace-types'
-import type { ResolvedWorktree } from './runtime-worktree-path-identity'
+import { runtimeWorktreeIdsEqual, type ResolvedWorktree } from './runtime-worktree-path-identity'
 import { folderWorkspaceToWorktree } from '../../shared/folder-workspace-worktree'
 import type { TerminalWorkspaceLaunchScope } from './runtime-legacy-worker-terminal-recovery-types'
 import { resolveTerminalStartupCwd } from '../../shared/terminal-startup-cwd'
@@ -124,7 +124,13 @@ export class OrcaRuntimeWithResolveBrowserNetworkExecutionHostForWorktree extend
     const workspaceSelector = selector.startsWith('id:') ? selector.slice(3) : selector
     const parsed = parseWorkspaceKey(workspaceSelector)
     const worktreeSelector = parsed?.type === 'worktree' ? `id:${parsed.worktreeId}` : selector
-    const worktree = await this.resolveWorktreeSelector(worktreeSelector)
+    const resolvedWorktree = await this.resolveWorktreeSelector(worktreeSelector)
+    const requestedId = getExplicitWorktreeIdSelector(worktreeSelector)
+    // WSL Git can change slash spelling. Keep the caller's existing tab/session key.
+    const worktree =
+      requestedId && runtimeWorktreeIdsEqual(requestedId, resolvedWorktree.id)
+        ? { ...resolvedWorktree, id: requestedId }
+        : resolvedWorktree
     // Why: `getRepo(id)` is host-blind and the same repo id can exist on local, SSH and runtime
     // hosts. Reading `connectionId` off an arbitrary row reports "local" for a remote worktree and
     // spawns its PTY on the client with the remote cwd (#11163). Loss of a usable answer is

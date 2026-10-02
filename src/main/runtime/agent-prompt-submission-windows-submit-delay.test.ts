@@ -301,7 +301,7 @@ describe('agent prompt render gate on a ConPTY host', () => {
   async function createSettlementRuntime(
     // `noiseUntilMs` keeps the pane emitting inside every quiet window, so the gate can only
     // end on its hard cap -- which is what the cap's arithmetic has to be measured against.
-    agentOutput: { markerDelayMs?: number; noiseUntilMs?: number } = {}
+    agentOutput: { markerDelayMs?: number; noiseUntilMs?: number; agent?: 'claude' | 'codex' } = {}
   ): Promise<{
     runtime: OrcaRuntimeService
     handle: string
@@ -332,7 +332,7 @@ describe('agent prompt render gate on a ConPTY host', () => {
       getForegroundProcess: async () => null
     })
     const terminal = await runtime.createTerminal(`path:${WORKTREE_PATH}`, {
-      launchAgent: 'claude'
+      launchAgent: agentOutput.agent ?? 'claude'
     })
     return { runtime, handle: terminal.handle, writes, submitTimes }
   }
@@ -395,6 +395,25 @@ describe('agent prompt render gate on a ConPTY host', () => {
     // 100 ms marker + 1_500 ms quiet: a sub-chunk paste adds no measurable ingest.
     expect(submitTimes[0]).toBeGreaterThanOrEqual(1_600)
     expect(submitTimes[0]).toBeLessThan(1_700)
+    await stalled
+  })
+
+  it('waits for native Windows Codex to finish rendering a paste beyond eight seconds', async () => {
+    useHostPlatform('win32')
+    vi.useFakeTimers()
+    const { runtime, handle, writes, submitTimes } = await createSettlementRuntime({
+      agent: 'codex',
+      noiseUntilMs: 12_000
+    })
+    const submission = runtime.sendTerminalAgentPrompt(handle, 'review '.repeat(900))
+    const stalled = expect(submission).rejects.toThrow('agent_prompt_stalled')
+
+    await vi.advanceTimersByTimeAsync(12_000)
+    expect(countSubmits(writes)).toBe(0)
+    await vi.runAllTimersAsync()
+    expect(submitTimes).toHaveLength(1)
+    expect(submitTimes[0]).toBeGreaterThan(13_000)
+    expect(submitTimes[0]).toBeLessThan(14_000)
     await stalled
   })
 })

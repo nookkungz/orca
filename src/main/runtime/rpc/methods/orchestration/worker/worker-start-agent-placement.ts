@@ -29,6 +29,7 @@ import {
   type WorkerSetupReceipt
 } from './worker-topology'
 import { createWorkerWorktree } from './worker-worktree-creation'
+import { readCodexTeamPolicy } from '../../../../../../shared/codex-team'
 
 /** Only what the placement itself reads. The runtime's own worktree accessors are untyped, so
  *  naming the two fields keeps `any` out of this module's unions. */
@@ -171,6 +172,8 @@ async function createWorkerAgentSurface(
     agent: args.agent as TuiAgent,
     ...(args.launchPreferences ? { launchPreferences: args.launchPreferences } : {}),
     taskId: args.taskId,
+    team: readCodexTeamPolicy(args.db.getRun(args.db.getTask(args.taskId)!.run_id)?.team_policy),
+    coordinatorHandle: args.params.from,
     effects: args.effects
   })
   return {

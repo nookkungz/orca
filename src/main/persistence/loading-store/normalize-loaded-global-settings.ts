@@ -1,3 +1,4 @@
+import { CodexTeamSettingsSchema, DEFAULT_CODEX_TEAM_SETTINGS } from '../../../shared/codex-team'
 import { getDefaultVoiceSettings } from '../../../shared/constants'
 import { normalizePRBotAuthorOverrides } from '../../../shared/pr-bot-author-overrides'
 import { normalizeTerminalQuickCommands } from '../../../shared/terminal-quick-commands'
@@ -121,6 +122,9 @@ export function normalizeLoadedGlobalSettings(
       parsed.settings?.terminalShortcutPolicy
     ),
     disabledTuiAgents: migratedDisabledTuiAgents,
+    codexTeam:
+      CodexTeamSettingsSchema.safeParse(parsed.settings?.codexTeam).data ??
+      DEFAULT_CODEX_TEAM_SETTINGS,
     ...migratedAgentYoloDefaults,
     claudeAgentTeamsDefaultDisabledMigrated: true,
     openInApplications: normalizeOpenInApplications(parsed.settings?.openInApplications, {

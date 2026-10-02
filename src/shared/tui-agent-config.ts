@@ -105,6 +105,21 @@ const TUI_AGENT_CONFIG_SOURCE: Record<TuiAgent, TuiAgentConfigSource> = {
     draftPasteReadyTimeoutMs: 20_000,
     submitRetryDelayMs: 1200
   },
+  'codex-team': {
+    detectCmd: 'codex',
+    launchCmd: 'orca codex-team',
+    launchCmdByPlatform: {
+      linux: `${getOrcaCliCommandNameForPlatform('linux')} codex-team`,
+      win32: `${getOrcaCliCommandNameForPlatform('win32')} codex-team`
+    },
+    expectedProcess: 'codex',
+    promptInjectionMode: 'argv',
+    windowsInputRecordPasteNewline: 'alt-enter',
+    preflightTrust: 'codex',
+    draftPasteReadySignal: 'codex-composer-prompt',
+    draftPasteReadyTimeoutMs: 20_000,
+    submitRetryDelayMs: 1200
+  },
   autohand: {
     detectCmd: 'autohand',
     promptInjectionMode: 'stdin-after-start'

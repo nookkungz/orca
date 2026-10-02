@@ -102,7 +102,12 @@ export function buildAgentStartupPlan(args: {
   const quotedPrompt = quoteStartupArg(trimmedPrompt, shell)
 
   if (config.promptInjectionMode === 'argv') {
-    const promptSeparator = config.argvPromptSeparator ? ` ${config.argvPromptSeparator}` : ''
+    const promptSeparator =
+      agent === 'codex-team'
+        ? ' --orca-team-prompt'
+        : config.argvPromptSeparator
+          ? ` ${config.argvPromptSeparator}`
+          : ''
     return {
       agent,
       launchCommand:

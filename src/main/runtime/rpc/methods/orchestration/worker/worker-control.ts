@@ -64,7 +64,11 @@ export const ORCHESTRATION_WORKER_CONTROL_METHODS = [
         }
       }
       const observation = await inspectWorkerTerminal(runtime, db, params.dispatch)
-      const resource = db.getWorkerTerminalResourceByOwner(params.dispatch)
+      const resource =
+        db.getWorkerTerminalResourceByOwner(params.dispatch) ??
+        (db.getRun(dispatch.run_id)?.team_policy
+          ? db.getWorkerTerminalResourceFormerlyOwnedBy(params.dispatch)
+          : null)
       return {
         dispatch: exposeDispatchContext(dispatch),
         worker: exposeWorker(worker),
@@ -110,7 +114,11 @@ export const ORCHESTRATION_WORKER_CONTROL_METHODS = [
           `Worker Dispatch ${params.dispatch} has no agent terminal.`
         )
       }
-      const resource = db.getWorkerTerminalResourceByOwner(params.dispatch)
+      const resource =
+        db.getWorkerTerminalResourceByOwner(params.dispatch) ??
+        (db.getRun(dispatch.run_id)?.team_policy
+          ? db.getWorkerTerminalResourceFormerlyOwnedBy(params.dispatch)
+          : null)
       if (resource && ['releasing', 'unknown', 'released'].includes(resource.release_state)) {
         // Archive capture is not close evidence; recheck the execution host while releasing.
         let liveness: 'live' | 'unverifiable' | 'exited' =
@@ -127,6 +135,7 @@ export const ORCHESTRATION_WORKER_CONTROL_METHODS = [
         const archived = await readArchivedWorkerOutput({
           db,
           dispatchId: params.dispatch,
+          archiveDispatchId: resource.owner_dispatch_id,
           workerState: worker?.state ?? 'unsupervised',
           resource,
           source: params.source,

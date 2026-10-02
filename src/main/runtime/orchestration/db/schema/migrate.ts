@@ -38,6 +38,14 @@ export function migrate(this: OrchestrationDb): void {
     migrateV40.call(this, current)
     // Why: older steps recreate the unique index; v41 must run after them.
     migrateV41.call(this, current)
+    if (
+      current < 42 &&
+      !this.db
+        .prepare("SELECT name FROM pragma_table_info('runs') WHERE name = 'team_policy'")
+        .get()
+    ) {
+      this.db.exec('ALTER TABLE runs ADD COLUMN team_policy TEXT')
+    }
     this.createMailboxDeliveryIndexesIfPossible()
     // Why: rebuild steps above RENAME the table, which SQLite refuses while a view names it.
     this.db.exec(DERIVED_DELIVERY_SCHEMA_SQL)

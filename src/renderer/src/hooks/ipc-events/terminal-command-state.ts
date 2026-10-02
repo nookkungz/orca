@@ -50,7 +50,8 @@ function insertLeafAfterSource(
   node: TerminalPaneLayoutNode,
   sourceLeafId: string,
   newLeafId: string,
-  direction: TerminalSplitDirection
+  direction: TerminalSplitDirection,
+  placement?: 'before' | 'after'
 ): { node: TerminalPaneLayoutNode; inserted: boolean } {
   if (node.type === 'leaf') {
     if (node.leafId !== sourceLeafId) {
@@ -60,18 +61,18 @@ function insertLeafAfterSource(
       node: {
         type: 'split',
         direction,
-        first: node,
-        second: { type: 'leaf', leafId: newLeafId },
+        first: placement === 'before' ? { type: 'leaf', leafId: newLeafId } : node,
+        second: placement === 'before' ? node : { type: 'leaf', leafId: newLeafId },
         ratio: 0.5
       },
       inserted: true
     }
   }
-  const first = insertLeafAfterSource(node.first, sourceLeafId, newLeafId, direction)
+  const first = insertLeafAfterSource(node.first, sourceLeafId, newLeafId, direction, placement)
   if (first.inserted) {
     return { node: { ...node, first: first.node }, inserted: true }
   }
-  const second = insertLeafAfterSource(node.second, sourceLeafId, newLeafId, direction)
+  const second = insertLeafAfterSource(node.second, sourceLeafId, newLeafId, direction, placement)
   return second.inserted
     ? { node: { ...node, second: second.node }, inserted: true }
     : { node, inserted: false }
@@ -84,7 +85,8 @@ export function addSplitLeafToLayout(
   ptyId: string,
   direction: TerminalSplitDirection,
   title?: string | null,
-  activateNewLeaf = true
+  activateNewLeaf = true,
+  placement?: 'before' | 'after'
 ): TerminalLayoutSnapshot {
   const root = layout?.root ?? { type: 'leaf', leafId: sourceLeafId }
   const existingLeafIds = collectLeafIdsInOrder(root)
@@ -95,7 +97,7 @@ export function addSplitLeafToLayout(
   const nextRoot = existingLeafIds.includes(newLeafId)
     ? root
     : (() => {
-        const inserted = insertLeafAfterSource(root, sourceLeafId, newLeafId, direction)
+        const inserted = insertLeafAfterSource(root, sourceLeafId, newLeafId, direction, placement)
         if (inserted.inserted) {
           return inserted.node
         }

@@ -1,3 +1,5 @@
+import { useCodexTeamView } from './use-codex-team-view'
+import type { CodexTeamView } from '../../../../shared/codex-team'
 import { useCallback, useEffect, useLayoutEffect } from 'react'
 import { useAppStore } from '../../store'
 import { makePaneKey } from '../../../../shared/stable-pane-id'
@@ -24,7 +26,9 @@ import { resolveLeafScrollbackBuffers } from './leaf-scrollback-resolution'
 import { shouldPreserveTerminalScrollbackBuffers } from '../../../../shared/workspace-session-terminal-buffers'
 import type { TerminalPaneCloseController } from './use-terminal-pane-close-actions'
 
-export function useTerminalPaneTitleEffects(controller: TerminalPaneCloseController): void {
+export function useTerminalPaneTitleEffects(
+  controller: TerminalPaneCloseController
+): CodexTeamView | null {
   const {
     clearTerminalPaneUnread,
     clearTerminalTabUnread,
@@ -53,6 +57,8 @@ export function useTerminalPaneTitleEffects(controller: TerminalPaneCloseControl
     tabId,
     worktreeId
   } = controller
+
+  const codexTeam = useCodexTeamView(worktreeId, tabId)
 
   useEffect(() => {
     const container = containerRef.current
@@ -93,7 +99,17 @@ export function useTerminalPaneTitleEffects(controller: TerminalPaneCloseControl
     }
     const needsFit = syncSessionRestoredBannerTitleSpace({
       panes: manager.getPanes(),
-      paneTitles,
+      paneTitles: {
+        ...paneTitles,
+        ...Object.fromEntries(
+          manager.getPanes().flatMap((pane) => {
+            const member = codexTeam?.panes.find(
+              (entry) => entry.paneKey === makePaneKey(tabId, pane.leafId)
+            )
+            return member ? [[pane.id, member.role]] : []
+          })
+        )
+      },
       renamingPaneId,
       sessionRestoredBannerPaneIds
     })
@@ -105,6 +121,7 @@ export function useTerminalPaneTitleEffects(controller: TerminalPaneCloseControl
     paneCount,
     paneLayoutRevision,
     paneTitles,
+    codexTeam,
     renamingPaneId,
     sessionRestoredBannerPaneIds,
     isVisible,
@@ -274,4 +291,5 @@ export function useTerminalPaneTitleEffects(controller: TerminalPaneCloseControl
     }
     // oxlint-disable-next-line react-hooks/exhaustive-deps -- Preserve the pre-split dependency contract.
   }, [renamingPaneId])
+  return codexTeam
 }

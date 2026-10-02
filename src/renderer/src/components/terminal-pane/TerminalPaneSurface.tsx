@@ -297,6 +297,7 @@ export function TerminalPaneSurface({
         />
       ) : null}
       <TerminalPaneHeaderOverlay
+        team={controller.codexTeam}
         tabId={tabId}
         worktreeId={worktreeId}
         cwd={cwd ?? ''}

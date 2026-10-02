@@ -51,6 +51,7 @@ export function validateFederatedWorkerStartPlacement(
 export function prepareLocalWorkerStart(args: {
   params: WorkerStartInput
   createsWorktree: boolean
+  validatedCodexCatalog?: boolean
   runtime: OrcaRuntimeService
 }): { agent: TuiAgent | undefined; launch: WorkerStartLaunch } {
   const { params, createsWorktree, runtime } = args
@@ -80,6 +81,7 @@ export function prepareLocalWorkerStart(args: {
     runtime,
     terminal: params.terminal,
     agent: params.agent,
+    validatedCodexCatalog: args.validatedCodexCatalog,
     model: params.model,
     effort: params.effort,
     missingAgentMessage: 'A configured --agent is required when worker-start creates a terminal.'
@@ -136,6 +138,7 @@ function resolveWorkerStartAgent(args: {
   terminal?: string
   agent?: string
   model?: string
+  validatedCodexCatalog?: boolean
   effort?: string
   missingAgentMessage: string
 }): { agent: TuiAgent | undefined; launch: WorkerStartLaunch } {
@@ -150,6 +153,7 @@ function resolveWorkerStartAgent(args: {
       launch: resolveWorkerLaunchPreferences({
         agent,
         model: args.model,
+        validatedCodexCatalog: args.validatedCodexCatalog,
         effort: args.effort
       })
     }

@@ -14,6 +14,9 @@ import { WORKSPACE_FILE_PATH_MIME, WORKSPACE_FILE_PATHS_MIME } from '@/lib/works
 import { isImeCompositionKeyDown } from '@/lib/ime-composition-keyboard-event'
 import type { PtyTransport } from './pty-transport'
 import { handleInternalTerminalFileDrop } from './terminal-drop-handler'
+import type { CodexTeamView } from '../../../../shared/codex-team'
+import { CodexTeamHistory } from './CodexTeamHistory'
+import { useAppStore } from '@/store'
 
 export type PaneTitleOverlayRect = {
   left: number
@@ -25,6 +28,7 @@ type TerminalPaneHeaderOverlayProps = {
   tabId: string
   worktreeId: string
   cwd: string
+  team?: CodexTeamView | null
   showAlwaysOnHeaders: boolean
   /** Used by ephemeral one-off command terminals that omit the header affordance. */
   showSplitButton?: boolean
@@ -72,6 +76,7 @@ export default function TerminalPaneHeaderOverlay({
   worktreeId,
   cwd,
   showAlwaysOnHeaders,
+  team,
   showSplitButton = true,
   paneCount,
   activePaneId,
@@ -104,6 +109,7 @@ export default function TerminalPaneHeaderOverlay({
   onRenameCancel,
   onRenameBlur
 }: TerminalPaneHeaderOverlayProps): React.JSX.Element {
+  const reported = useAppStore((state) => state.agentStatusByPaneKey)
   const splitRightLabel = translate(
     'auto.components.terminal.pane.TerminalContextMenu.20e565d865',
     'Split Terminal Right'
@@ -120,12 +126,16 @@ export default function TerminalPaneHeaderOverlay({
       }}
     >
       {panes.map((pane) => {
+        const teamPane = team?.panes.find((member) => member.paneKey === `${tabId}:${pane.leafId}`)
+        const reportedModel =
+          teamPane?.reported?.model ?? (teamPane ? reported[teamPane.paneKey]?.model : null)
         const title = paneTitles[pane.id]
         const isEditing = renamingPaneId === pane.id
         const overlayRect = paneTitleOverlayRects[pane.id]
         const isActivePane = activePaneId === pane.id
-        const isChromeless = showAlwaysOnHeaders && !title && !isEditing
-        const showHeader = overlayRect && (showAlwaysOnHeaders || Boolean(title) || isEditing)
+        const isChromeless = showAlwaysOnHeaders && !title && !isEditing && !teamPane
+        const showHeader =
+          overlayRect && (showAlwaysOnHeaders || Boolean(title) || Boolean(teamPane) || isEditing)
         if (!showHeader || !overlayRect) {
           return null
         }
@@ -231,7 +241,18 @@ export default function TerminalPaneHeaderOverlay({
                     }}
                   />
                 )}
-                {title ? (
+                {teamPane ? (
+                  <span
+                    className="truncate text-xs"
+                    title={`Requested ${teamPane.model} / ${teamPane.effort}. Reported ${reportedModel ?? 'model pending'} / ${teamPane.reported?.effort ?? 'effort pending'}.`}
+                  >
+                    {teamPane.role} · requested {teamPane.model} / {teamPane.effort}
+                    {reportedModel
+                      ? ` · reported ${reportedModel} / ${teamPane.reported?.effort ?? 'effort pending'}`
+                      : ''}
+                    {teamPane.recovery ? ' · recovery needed' : ''}
+                  </span>
+                ) : title ? (
                   <button
                     type="button"
                     className="pane-title-text"
@@ -246,7 +267,14 @@ export default function TerminalPaneHeaderOverlay({
                   </button>
                 ) : null}
                 <div className="pane-title-actions ml-auto flex shrink-0 items-center gap-0">
-                  {canContinueAgentSessionInNewSession && isActivePane ? (
+                  {teamPane?.dispatches?.length ? (
+                    <CodexTeamHistory
+                      worktreeId={worktreeId}
+                      role={teamPane.role}
+                      dispatches={teamPane.dispatches}
+                    />
+                  ) : null}
+                  {canContinueAgentSessionInNewSession && isActivePane && !team ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
@@ -274,7 +302,7 @@ export default function TerminalPaneHeaderOverlay({
                       </TooltipContent>
                     </Tooltip>
                   ) : null}
-                  {canToggleNativeChat && isActivePane ? (
+                  {canToggleNativeChat && isActivePane && !team ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button

@@ -163,7 +163,8 @@ async function scanForwardPage(args: {
     autoClose: false
   })
   let absoluteOffset = args.startOffset
-  for await (const rawChunk of stream) {
+  // The caller still validates this handle after a page reaches its message limit.
+  for await (const rawChunk of stream.iterator({ destroyOnReturn: false })) {
     const chunk = Buffer.isBuffer(rawChunk) ? rawChunk : Buffer.from(rawChunk)
     let segmentStart = 0
     let newline = chunk.indexOf(0x0a)

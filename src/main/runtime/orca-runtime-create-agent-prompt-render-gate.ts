@@ -20,6 +20,14 @@ export class OrcaRuntimeWithCreateAgentPromptRenderGate extends OrcaRuntimeWithW
     if (!['claude', 'codex'].includes(pty?.launchAgent ?? pty?.foregroundAgent ?? '')) {
       return null
     }
+    // Native Windows Codex reads pastes as individual key events and redraws for each.
+    // A 6 KiB worker prompt can still be rendering at the ordinary eight-second cap.
+    const renderTimeoutMs =
+      (pty?.foregroundAgent ?? pty?.launchAgent) === 'codex' &&
+      this.getPtyWriteHostPlatform(ptyId) === 'win32' &&
+      pty?.isWsl !== true
+        ? 30_000
+        : CLAUDE_AGENT_PROMPT_RENDER_TIMEOUT_MS
     let armed = false
     let observedMarker = false
     let settled = false
@@ -73,10 +81,7 @@ export class OrcaRuntimeWithCreateAgentPromptRenderGate extends OrcaRuntimeWithW
       if (hardTimer) {
         clearTimeout(hardTimer)
       }
-      hardTimer = setTimeout(
-        finish,
-        CLAUDE_AGENT_PROMPT_RENDER_TIMEOUT_MS + Math.max(0, ingestDeadlineAt - Date.now())
-      )
+      hardTimer = setTimeout(finish, renderTimeoutMs + Math.max(0, ingestDeadlineAt - Date.now()))
     }
     const armIngestTimer = (): void => {
       if (ingested || ingestTimer) {
