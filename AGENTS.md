@@ -1,3 +1,14 @@
+# Personal Orca: Keep the Daily App Running
+
+The user uses the installed personal Orca while agents develop features and fix bugs. Follow these rules on every host:
+
+- Build a separate test app for app/UI/integration testing. Use an isolated build output and app path; never overwrite or install over the user's daily Orca as part of testing.
+- Give the test app its own data/profile directory, runtime/daemon, sockets, and ports. Verify isolation before launch; a different app name alone is insufficient. Never attach tests to the daily app's sessions, terminals, or paired remote runtimes.
+- Use disposable test data and terminals. Do not mutate the user's live workspaces, settings, databases, or sessions. Reuse the existing isolated test harness where available.
+- Keep the daily app, its runtime/daemon, and active terminals running. Do not quit, restart, update, or kill them for builds or tests. Clean up only processes and artifacts created for the test.
+- Run source-only checks (unit tests, typecheck, lint) without launching an app when sufficient. App tests must use the separate build and follow the background-launch rules below.
+- Installing a verified build into the daily app is a separate deployment step and requires the user's explicit approval. Report which test build/profile was verified and any checks that remain unverified.
+
 # Design System
 
 All UI work — layout, color, typography, spacing, component selection, UX behavior — must follow [`docs/STYLEGUIDE.md`](./docs/STYLEGUIDE.md). Most of it is linted: `pnpm run check:code-quality:changed` fails on new restyles of a `components/ui/` primitive, raw palette colors, and computed `className` strings; `pnpm lint` fails on any class Tailwind cannot generate. See the Enforcement section of the style guide before suppressing either. Use the tokens defined in `src/renderer/src/assets/main.css` (the canonical source) and the shadcn primitives in `src/renderer/src/components/ui/`. Don't invent new color values, font sizes, or shadow tiers when a documented one already covers the role. When STYLEGUIDE.md is silent, follow the resolution order in its final section.
